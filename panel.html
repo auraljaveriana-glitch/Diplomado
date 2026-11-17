@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diplomado · Red de respuestas · Aural</title>
+<style>
+  :root{
+    --bg:#040D1C; --surface:#071427; --surface-2:#0C1D36; --line:#173055;
+    --ink:#E8EEF7; --ink-2:#A9B7CC; --ink-3:#6F819C;
+    --navy:#041E42; --accent:#8ED5DE; --teal:#10616F;
+    --pos:#26A5A0; --neu:#8A94A6; --neg:#E0655C;
+    --node:#BFD3EA;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 "Gotham","Montserrat",system-ui,-apple-system,"Segoe UI",sans-serif}
+  body{background:radial-gradient(1200px 600px at 70% -10%,#0E2A4F 0%,transparent 60%),var(--bg);min-height:100vh}
+  button{font:inherit;cursor:pointer}
+  header{display:flex;align-items:center;gap:16px;padding:18px 28px;border-bottom:1px solid var(--line)}
+  .logo{font-weight:700;font-size:22px;letter-spacing:.5px;color:#fff}
+  .logo small{display:block;font-size:8px;letter-spacing:2px;color:var(--ink-3);font-weight:500}
+  header h1{font-size:16px;font-weight:600;margin:0;color:var(--ink-2)}
+  header h1 b{color:var(--ink)}
+  .sp{flex:1}
+  .btn{background:var(--surface-2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 14px;display:inline-flex;gap:8px;align-items:center}
+  .btn:hover{border-color:var(--accent)}
+  .btn.pri{background:var(--teal);border-color:var(--teal)}
+  .btn.pri:hover{background:#147a8b}
+  .btn:disabled{opacity:.5;cursor:wait}
+  main{padding:20px 28px 40px;display:grid;gap:18px}
+  .kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+  .kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .kpi .l{color:var(--ink-3);font-size:12px;text-transform:uppercase;letter-spacing:.6px}
+  .kpi .v{font-size:30px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums}
+  .kpi .s{color:var(--ink-2);font-size:12px}
+  .filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .filters input,.filters select{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit}
+  .filters input{width:240px}
+  .legend{display:flex;gap:14px;color:var(--ink-2);font-size:12px;margin-left:auto}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+  .grid{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:18px;align-items:start}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+  .card h2{font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-3);margin:0 0 12px;font-weight:600}
+  #red{width:100%;display:block}
+  .layer-label{fill:var(--ink-3);font-size:11px;letter-spacing:1px;text-transform:uppercase}
+  .edge{fill:none;stroke:#2A4A75;stroke-opacity:.45;transition:stroke .15s,stroke-opacity .15s}
+  .edge.hl{stroke:var(--accent);stroke-opacity:.95}
+  .edge.dim{stroke-opacity:.06}
+  .pulse{fill:none;stroke:var(--accent);stroke-width:1.5;stroke-dasharray:4 46;stroke-opacity:.0;animation:flow 2.4s linear infinite}
+  .edge.hl + .pulse{stroke-opacity:.9}
+  @keyframes flow{to{stroke-dashoffset:-50}}
+  .node circle{stroke:var(--surface);stroke-width:2;transition:r .15s}
+  .node text{fill:var(--ink-2);font-size:11px;pointer-events:none}
+  .node.dim{opacity:.18}
+  .node.hl text{fill:#fff;font-weight:600}
+  .node{cursor:pointer;outline:none}
+  .node:focus-visible circle{stroke:#fff}
+  .glow{filter:url(#glow)}
+  .chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:2px 10px;font-size:12px;border:1px solid var(--line);color:var(--ink)}
+  .chip i{width:8px;height:8px;border-radius:50%;display:inline-block}
+  #detalle .vacio{color:var(--ink-3);padding:30px 4px;text-align:center}
+  .d-nombre{font-size:18px;font-weight:700}
+  .d-sub{color:var(--ink-2);margin-bottom:12px}
+  dl{display:grid;grid-template-columns:90px 1fr;gap:4px 10px;margin:0 0 14px}
+  dt{color:var(--ink-3)} dd{margin:0}
+  .resp{margin:0 0 12px}
+  .resp .q{color:var(--ink-2);font-size:12px}
+  .bar{height:6px;background:var(--surface-2);border-radius:4px;margin-top:4px;overflow:hidden}
+  .bar span{display:block;height:100%;background:var(--accent);border-radius:4px}
+  .resp .t{background:var(--surface-2);border-radius:8px;padding:8px 10px;margin-top:4px;color:var(--ink)}
+  .claude{border-top:1px solid var(--line);margin-top:14px;padding-top:14px}
+  .claude h3{font-size:12px;letter-spacing:.8px;text-transform:uppercase;color:var(--accent);margin:0 0 10px;display:flex;align-items:center;gap:8px}
+  .claude ul{margin:4px 0 10px;padding-left:18px;color:var(--ink-2)}
+  .alerta{background:rgba(224,101,92,.12);border:1px solid rgba(224,101,92,.5);border-radius:8px;padding:8px 10px;margin:8px 0}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;color:var(--ink-3);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.6px;padding:8px;border-bottom:1px solid var(--line)}
+  td{padding:8px;border-bottom:1px solid rgba(23,48,85,.6)}
+  tbody tr{cursor:pointer} tbody tr:hover{background:var(--surface-2)}
+  .num{text-align:right;font-variant-numeric:tabular-nums}
+  .ag h4{margin:14px 0 6px;font-size:13px;color:var(--ink)}
+  .ag p,.ag li{color:var(--ink-2)}
+  .ag .tit{font-size:17px;color:#fff;font-weight:600}
+  .tooltip{position:fixed;pointer-events:none;background:#0B1B33;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--ink);max-width:260px;display:none;z-index:10;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+  .muted{color:var(--ink-3)}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--teal);color:#fff;padding:10px 16px;border-radius:8px;display:none}
+  @media (max-width:1100px){.grid{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}}
+  @media (prefers-reduced-motion:reduce){.pulse{animation:none}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">aural<small>CENTROS AUDITIVOS</small></div>
+  <h1><b>Diplomado Audiología Estratégica</b> · Red de respuestas</h1>
+  <div class="sp"></div>
+  <button class="btn" id="bPend" title="Evalúa con Claude las encuestas completas que aún no tienen evaluación">✦ Evaluar pendientes</button>
+  <button class="btn pri" id="bGen">✦ Análisis general con Claude</button>
+  <a class="btn" id="bCsv" href="/api/exportar.csv" style="text-decoration:none">⇩ Exportar CSV</a>
+</header>
+
+<main>
+  <section class="kpis" id="kpis"></section>
+
+  <div class="filters">
+    <input id="fBuscar" placeholder="Buscar nombre, profesión o ciudad…">
+    <select id="fCiudad"><option value="">Todas las ciudades</option></select>
+    <select id="fSent">
+      <option value="">Todos los sentimientos</option>
+      <option value="positivo">Positivo</option><option value="neutral">Neutral</option>
+      <option value="negativo">Negativo</option><option value="sin">Sin evaluar</option>
+    </select>
+    <div class="legend">
+      <span><i style="background:var(--pos)"></i>▲ Positivo</span>
+      <span><i style="background:var(--neu)"></i>● Neutral</span>
+      <span><i style="background:var(--neg)"></i>▼ Negativo</span>
+      <span><i style="background:#3A4A62"></i>Sin evaluar</span>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Red neuronal de respuestas — participante → profesión → temas detectados por Claude → sentimiento</h2>
+      <svg id="red" role="img" aria-label="Red de participantes, profesiones, temas y sentimiento"></svg>
+    </div>
+    <aside class="card" id="detalle"><div class="vacio">Haz clic en un nodo de la red o en una fila de la tabla para ver el detalle y la evaluación de Claude.</div></aside>
+  </div>
+
+  <div class="card ag" id="analisis"></div>
+
+  <div class="card">
+    <h2>Todos los registros</h2>
+    <table><thead><tr>
+      <th>Nombre</th><th>Profesión</th><th>Ciudad</th><th>Estado</th>
+      <th class="num">General</th><th>Aplicará</th><th>Más aportó</th><th>Sentimiento (Claude)</th><th>Resumen</th>
+    </tr></thead><tbody id="tabla"></tbody></table>
+  </div>
+</main>
+<div class="tooltip" id="tip"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const DEMO = new URLSearchParams(location.search).has('demo');
+const SENT = {
+  positivo:{c:'var(--pos)',hex:'#26A5A0',ic:'▲',t:'Positivo'},
+  neutral:{c:'var(--neu)',hex:'#8A94A6',ic:'●',t:'Neutral'},
+  negativo:{c:'var(--neg)',hex:'#E0655C',ic:'▼',t:'Negativo'},
+  sin:{c:'#3A4A62',hex:'#3A4A62',ic:'○',t:'Sin evaluar'},
+};
+let D = {preguntas:[],participantes:[],analisis:null,claude:false};
+let sel = null;
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const PASOS = {consentimiento:'Autorizando datos',nombre:'Dando nombre',profesion:'Dando profesión',telefono:'Dando teléfono',direccion:'Dando dirección',ciudad:'Dando ciudad',confirmar_datos:'Confirmando datos'};
+const estado = p => p.paso==='terminado' ? '✅ Completo' : p.paso.startsWith('encuesta:') ? `⏳ Encuesta ${+p.paso.split(':')[1]+1}/${D.preguntas.length}` : '⏳ '+(PASOS[p.paso]||p.paso);
+const sentDe = p => p.evaluacion?.sentimiento || 'sin';
+const chip = s => `<span class="chip"><i style="background:${SENT[s].c}"></i>${SENT[s].ic} ${SENT[s].t}</span>`;
+function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',3500)}
+
+async function cargar(){
+  if (DEMO){ D = demo(); }
+  else {
+    const r = await fetch('/api/datos'); D = await r.json();
+  }
+  if (!D.claude && !DEMO){ $('#bPend').disabled = $('#bGen').disabled = true; $('#bGen').title = 'Falta ANTHROPIC_API_KEY en el servidor'; }
+  const ciudades = [...new Set(D.participantes.map(p=>p.ciudad).filter(Boolean))].sort();
+  $('#fCiudad').innerHTML = '<option value="">Todas las ciudades</option>' + ciudades.map(c=>`<option>${esc(c)}</option>`).join('');
+  render();
+}
+
+function filtrados(){
+  const q = $('#fBuscar').value.toLowerCase(), c = $('#fCiudad').value, s = $('#fSent').value;
+  return D.participantes.filter(p =>
+    (!q || [p.nombre,p.profesion,p.ciudad].join(' ').toLowerCase().includes(q)) &&
+    (!c || p.ciudad === c) && (!s || sentDe(p) === s));
+}
+
+function render(){ kpis(); red(); tabla(); analisis(); if (sel) detalle(sel); }
+
+function kpis(){
+  const todos = D.participantes, comp = todos.filter(p=>p.paso==='terminado');
+  const g = comp.map(p=>+p.respuestas.general).filter(n=>!isNaN(n));
+  const prom = g.length ? g.reduce((a,b)=>a+b,0)/g.length : null;
+  const pct = (k,v) => { const r = comp.filter(p=>p.respuestas[k]!==undefined); return r.length ? Math.round(100*r.filter(p=>p.respuestas[k]===v).length/r.length)+'%' : '—'; };
+  const top = k => { const c={}; comp.forEach(p=>{const v=p.respuestas[k]; if(v) c[v]=(c[v]||0)+1;}); const e=Object.entries(c).sort((a,b)=>b[1]-a[1])[0]; return e ? [e[0], `${e[1]} de ${comp.length} participantes`] : ['—','sin respuestas']; };
+  const ev = comp.filter(p=>p.evaluacion), pos = ev.filter(p=>p.evaluacion.sentimiento==='positivo').length;
+  const alertas = ev.filter(p=>p.evaluacion.alerta).length;
+  const [ap, aps] = top('aporte'), [fo, fos] = top('formato');
+  const t = [
+    ['Encuestas completas', comp.length, `${todos.length - comp.length} en curso`],
+    ['Calificación general', prom==null?'—':prom.toFixed(1), 'promedio de 1 a 5'],
+    ['Aplicará "mucho"', pct('aplicara','Mucho'), `volvería: ${pct('volveria','Sí')} dice sí`],
+    ['Lo que más aportó', ap, aps, true],
+    ['Formato preferido', fo, fos, true],
+    ['Sentimiento positivo', ev.length? Math.round(100*pos/ev.length)+'%':'—', `${ev.length} evaluadas · ${alertas} alerta${alertas===1?'':'s'}`],
+  ];
+  $('#kpis').innerHTML = t.map(([l,v,s,txt])=>`<div class="kpi"><div class="l">${l}</div><div class="v"${txt?' style="font-size:19px;margin:10px 0 6px"':''}>${esc(v)}</div><div class="s">${s}</div></div>`).join('');
+}
+
+/* ---------- Red neuronal ---------- */
+function red(){
+  const svg = $('#red');
+  const ps = filtrados().filter(p => p.nombre);
+  const W = svg.clientWidth || 900;
+  const profs = {}, temas = {}, sents = {};
+  ps.forEach(p=>{
+    const pr = p.profesion || 'Sin dato';
+    profs[pr] = (profs[pr]||0)+1;
+    (p.evaluacion?.temas||[]).forEach(t=>temas[t]=(temas[t]||0)+1);
+    sents[sentDe(p)] = (sents[sentDe(p)]||0)+1;
+  });
+  const capas = [
+    ps.map(p=>({id:'p:'+p.wa_id, label:p.nombre, n:1, color:SENT[sentDe(p)].hex, p})),
+    Object.entries(profs).sort((a,b)=>b[1]-a[1]).map(([k,n])=>({id:'f:'+k,label:k,n,color:'#BFD3EA'})),
+    Object.entries(temas).sort((a,b)=>b[1]-a[1]).slice(0,18).map(([k,n])=>({id:'t:'+k,label:k,n,color:'#8ED5DE'})),
+    ['positivo','neutral','negativo','sin'].filter(s=>sents[s]).map(s=>({id:'s:'+s,label:SENT[s].ic+' '+SENT[s].t,n:sents[s],color:SENT[s].hex})),
+  ];
+  const titulos = ['Participantes','Profesión','Temas (Claude)','Sentimiento'];
+  const maxN = Math.max(1,...capas.map(c=>c.length));
+  const H = Math.max(440, Math.min(maxN*22, 1400) + 70);
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`); svg.style.height = H+'px';
+  const xs = [150, W*0.42, W*0.68, W-110];
+  const pos = {};
+  capas.forEach((capa,i)=>{
+    const top = 50, h = H-top-20, paso = capa.length>1 ? Math.min(h/(capa.length-1), 60) : 0;
+    const y0 = top + (h - paso*(capa.length-1))/2;
+    capa.forEach((n,j)=>{ n.x = xs[i]; n.y = capa.length===1 ? top+h/2 : y0 + j*paso; n.capa=i; pos[n.id]=n; });
+  });
+  // aristas agregadas
+  const aristas = {};
+  const add = (a,b,pid) => { const k=a+'|'+b; (aristas[k] ||= {a,b,w:0,ps:new Set()}).w++; aristas[k].ps.add(pid); };
+  ps.forEach(p=>{
+    const P='p:'+p.wa_id, F='f:'+(p.profesion||'Sin dato'), S='s:'+sentDe(p);
+    add(P,F,p.wa_id);
+    const ts = (p.evaluacion?.temas||[]).filter(t=>pos['t:'+t]);
+    if (ts.length){ ts.forEach(t=>{ add(F,'t:'+t,p.wa_id); add('t:'+t,S,p.wa_id); }); }
+    else if (pos[S]) add(F,S,p.wa_id);
+  });
+  const rMax = n => 5 + Math.sqrt(n)*3;
+  let html = `<defs><filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`;
+  titulos.forEach((t,i)=> html += `<text class="layer-label" x="${xs[i]}" y="22" text-anchor="middle">${t}</text>`);
+  Object.values(aristas).forEach(e=>{
+    const a=pos[e.a], b=pos[e.b]; if(!a||!b) return;
+    const mx=(a.x+b.x)/2, d=`M${a.x},${a.y} C${mx},${a.y} ${mx},${b.y} ${b.x},${b.y}`;
+    html += `<path class="edge" data-ps="${[...e.ps].join(',')}" d="${d}" stroke-width="${Math.min(1+e.w*.8,7)}"/><path class="pulse" d="${d}"/>`;
+  });
+  Object.values(pos).forEach(n=>{
+    const r = n.capa===0 ? 6 : rMax(n.n);
+    const anchor = n.capa===0 ? 'end' : 'start', dx = n.capa===0 ? -12 : r+8;
+    const lbl = n.capa===0 ? n.label : `${n.label} · ${n.n}`;
+    html += `<g class="node" data-id="${esc(n.id)}" tabindex="0"><circle class="glow" cx="${n.x}" cy="${n.y}" r="${r}" fill="${n.color}"/>`+
+            `<text x="${n.x+dx}" y="${n.y+4}" text-anchor="${anchor}">${esc(lbl.length>28?lbl.slice(0,27)+'…':lbl)}</text></g>`;
+  });
+  if (!ps.length) html += `<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="#6F819C">Aún no hay participantes con estos filtros</text>`;
+  svg.innerHTML = html;
+
+  const pidsDe = id => {
+    if (id.startsWith('p:')) return new Set([id.slice(2)]);
+    const s = new Set();
+    Object.values(aristas).forEach(e=>{ if(e.a===id||e.b===id) e.ps.forEach(x=>s.add(x)); });
+    return s;
+  };
+  const resaltar = id => {
+    const set = pidsDe(id);
+    svg.querySelectorAll('.edge').forEach(e=>{
+      const hit = e.dataset.ps.split(',').some(x=>set.has(x));
+      e.classList.toggle('hl',hit); e.classList.toggle('dim',!hit);
+    });
+    const nodos = new Set();
+    Object.values(aristas).forEach(e=>{ if([...e.ps].some(x=>set.has(x))){nodos.add(e.a);nodos.add(e.b);} });
+    svg.querySelectorAll('.node').forEach(g=>{ const on = nodos.has(g.dataset.id)||g.dataset.id===id; g.classList.toggle('hl',on); g.classList.toggle('dim',!on); });
+    return set;
+  };
+  const limpiar = () => svg.querySelectorAll('.edge,.node').forEach(e=>e.classList.remove('hl','dim'));
+  const tip = $('#tip');
+  svg.querySelectorAll('.node').forEach(g=>{
+    const id = g.dataset.id, n = pos[id];
+    g.addEventListener('mouseenter',ev=>{
+      const set = resaltar(id);
+      let h;
+      if (n.p){ const p=n.p, e=p.evaluacion; h = `<b>${esc(p.nombre)}</b><br>${esc(p.profesion||'')} · ${esc(p.ciudad||'')}<br>General: ${p.respuestas.general??'—'}/5 · Aplicará: ${esc(p.respuestas.aplicara??'—')}`+(e?`<br>${SENT[e.sentimiento]?.ic||''} ${esc(e.resumen||'')}`:'<br><span class="muted">Sin evaluar por Claude</span>'); }
+      else h = `<b>${esc(n.label)}</b><br>${set.size} participante${set.size===1?'':'s'}`;
+      tip.innerHTML = h; tip.style.display='block';
+    });
+    g.addEventListener('mousemove',ev=>{ tip.style.left=(ev.clientX+14)+'px'; tip.style.top=(ev.clientY+14)+'px'; });
+    g.addEventListener('mouseleave',()=>{ tip.style.display='none'; limpiar(); if(sel) resaltar('p:'+sel); });
+    g.addEventListener('click',()=>{
+      if (n.p){ sel = n.p.wa_id; detalle(sel); }
+      else { $('#fBuscar').value=''; if(id.startsWith('s:')){ $('#fSent').value=id.slice(2); render(); } }
+    });
+  });
+  if (sel && pos['p:'+sel]) resaltar('p:'+sel);
+}
+
+/* ---------- Detalle ---------- */
+function detalle(wa){
+  const p = D.participantes.find(x=>x.wa_id===wa); if(!p) return;
+  const e = p.evaluacion;
+  let h = `<div class="d-nombre">${esc(p.nombre||'(sin nombre aún)')}</div><div class="d-sub">${esc(p.profesion||'')}${p.ciudad?' · '+esc(p.ciudad):''}</div>
+  <dl><dt>WhatsApp</dt><dd>+${esc(p.wa_id)}</dd><dt>Teléfono</dt><dd>${esc(p.telefono||'—')}</dd><dt>Dirección</dt><dd>${esc(p.direccion||'—')}</dd>
+  <dt>Estado</dt><dd>${esc(estado(p))}</dd></dl>`;
+  D.preguntas.forEach(q=>{
+    const v = p.respuestas[q.id]; if (v===undefined) return;
+    const txt = q.texto.replace(/\*/g,'');
+    if (q.tipo==='escala'||q.tipo==='nps'){ const max=q.tipo==='escala'?5:10;
+      h += `<div class="resp"><div class="q">${esc(txt)}</div><div style="display:flex;gap:8px;align-items:center"><div class="bar" style="flex:1"><span style="width:${100*v/max}%"></span></div><b>${v}/${max}</b></div></div>`;
+    } else h += `<div class="resp"><div class="q">${esc(txt)}</div><div class="t">${esc(v)}</div></div>`;
+  });
+  h += `<div class="claude"><h3>✦ Evaluación de Claude</h3>`;
+  if (e){
+    h += `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">${chip(e.sentimiento||'sin')}<span class="chip">Satisfacción ${e.satisfaccion??'—'}/10</span><span class="chip">Retroalimentación ${esc(e.calidad_respuesta||'—')}</span></div>
+    <p>${esc(e.resumen||'')}</p>`;
+    if (e.alerta) h += `<div class="alerta">⚠️ <b>Alerta:</b> ${esc(e.motivo_alerta||'')}</div>`;
+    if (e.temas?.length) h += `<div class="q muted">Temas</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 10px">${e.temas.map(t=>`<span class="chip">${esc(t)}</span>`).join('')}</div>`;
+    if (e.fortalezas?.length) h += `<div class="muted">Fortalezas</div><ul>${e.fortalezas.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`;
+    if (e.mejoras?.length) h += `<div class="muted">Mejoras</div><ul>${e.mejoras.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`;
+  } else h += `<p class="muted">${p.paso==='terminado'?'Todavía no tiene evaluación.':'Se evalúa cuando termine la encuesta.'}</p>`;
+  if (p.paso==='terminado') h += `<button class="btn" id="bEval">✦ ${e?'Volver a evaluar':'Evaluar ahora'}</button>`;
+  h += `</div>`;
+  $('#detalle').innerHTML = h;
+  const b = $('#bEval');
+  if (b) b.onclick = async () => {
+    if (DEMO) return toast('En modo demo no se llama a Claude');
+    b.disabled = true; b.textContent = 'Claude está evaluando…';
+    const r = await fetch('/api/evaluar/'+encodeURIComponent(wa),{method:'POST'});
+    if (r.ok){ p.evaluacion = await r.json(); render(); toast('Evaluación actualizada'); } else { toast('Error al evaluar'); b.disabled=false; }
+  };
+}
+
+/* ---------- Tabla ---------- */
+function tabla(){
+  $('#tabla').innerHTML = filtrados().map(p=>`<tr data-wa="${esc(p.wa_id)}">
+    <td>${esc(p.nombre||'—')}</td><td>${esc(p.profesion||'—')}</td><td>${esc(p.ciudad||'—')}</td>
+    <td>${esc(estado(p))}</td>
+    <td class="num">${p.respuestas.general??'—'}</td><td>${esc(p.respuestas.aplicara??'—')}</td><td>${esc(p.respuestas.aporte??'—')}</td>
+    <td>${chip(sentDe(p))}${p.evaluacion?.alerta?' ⚠️':''}</td><td class="muted">${esc(p.evaluacion?.resumen||'')}</td></tr>`).join('')
+    || '<tr><td colspan="9" class="muted">Sin registros todavía</td></tr>';
+  document.querySelectorAll('#tabla tr[data-wa]').forEach(tr=>tr.onclick=()=>{ sel=tr.dataset.wa; detalle(sel); red(); window.scrollTo({top:0,behavior:'smooth'}); });
+}
+
+/* ---------- Análisis general ---------- */
+function analisis(){
+  const a = D.analisis;
+  if (!a){ $('#analisis').innerHTML = `<h2>✦ Análisis general de Claude</h2><p class="muted">Cuando haya encuestas, pulsa “Análisis general con Claude” para obtener hallazgos, temas recurrentes y recomendaciones.</p>`; return; }
+  const li = arr => (arr||[]).map(x=>`<li>${esc(typeof x==='string'?x:JSON.stringify(x))}</li>`).join('');
+  $('#analisis').innerHTML = `<h2>✦ Análisis general de Claude · ${a.total} encuestas · ${new Date(a.creado).toLocaleString('es-CO')}</h2>
+    <div class="tit">${esc(a.titular||'')}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:4px 28px">
+      <div><h4>Hallazgos</h4><ul>${li(a.hallazgos)}</ul></div>
+      <div><h4>Recomendaciones</h4><ul>${li(a.recomendaciones)}</ul></div>
+      <div><h4>Temas recurrentes</h4><div style="display:flex;flex-wrap:wrap;gap:6px">${(a.temas_recurrentes||[]).map(t=>`${chip(SENT[t.tono]?t.tono:'neutral').replace(/▲ Positivo|● Neutral|▼ Negativo/,esc(t.tema)+' · '+t.menciones)}`).join('')}</div></div>
+      <div><h4>Riesgos y personas a contactar</h4><ul>${li(a.riesgos)}</ul>${a.por_segmento?`<h4>Por segmento</h4><p>${esc(a.por_segmento)}</p>`:''}</div>
+    </div>`;
+}
+
+$('#bGen').onclick = async () => {
+  if (DEMO) return toast('En modo demo no se llama a Claude');
+  const b=$('#bGen'); b.disabled=true; b.textContent='Claude está analizando…';
+  const r = await fetch('/api/analisis-general',{method:'POST'});
+  if (r.ok){ D.analisis = await r.json(); analisis(); toast('Análisis listo'); } else toast((await r.json()).detail||'Error');
+  b.disabled=false; b.textContent='✦ Análisis general con Claude';
+};
+$('#bPend').onclick = async () => {
+  if (DEMO) return toast('En modo demo no se llama a Claude');
+  const b=$('#bPend'); b.disabled=true; b.textContent='Evaluando…';
+  const r = await fetch('/api/evaluar-pendientes',{method:'POST'}); const j = await r.json();
+  toast(`${j.evaluados} encuestas evaluadas`); b.disabled=false; b.textContent='✦ Evaluar pendientes'; cargar();
+};
+['#fBuscar','#fCiudad','#fSent'].forEach(s=>$(s).addEventListener('input',()=>{ red(); tabla(); }));
+addEventListener('resize',()=>red());
+if (!DEMO) setInterval(()=>{ if(document.visibilityState==='visible') fetch('/api/datos').then(r=>r.json()).then(j=>{ D=j; render(); }); }, 60000);
+
+/* ---------- Datos de demostración (/panel?demo) ---------- */
+function demo(){
+  const nombres=['María Fernanda Gómez','Andrés Felipe Rojas','Laura Restrepo','Camilo Ortiz','Diana Marcela Vargas','Julián Castaño','Paola Andrea Ruiz','Santiago Mejía','Natalia Herrera','Felipe Arango','Valentina Cárdenas','Ricardo Pineda','Juliana Ospina','Mauricio Salazar'];
+  const profs=['Fonoaudióloga','Audiólogo','Otorrinolaringólogo','Fonoaudióloga','Audiólogo'];
+  const ciud=['Bogotá','Medellín','Cali','Barranquilla','Cartagena'];
+  const temasP=[['docentes','casos clínicos'],['casos clínicos','material de apoyo'],['networking','docentes'],['adaptación de audífonos','docentes']];
+  const temasN=[['logística','duración'],['duración','horarios'],['plataforma virtual','logística']];
+  const ps = nombres.map((n,i)=>{
+    const s = i%5===3?'negativo':i%4===2?'neutral':'positivo';
+    const g = s==='positivo'?5-(i%2):s==='neutral'?3:2;
+    return {wa_id:'5730000000'+i, paso: i===13?'encuesta:3':'terminado', nombre:n, profesion:profs[i%5], telefono:'+5730000000'+i, direccion:'Calle '+(10+i)+' # 20-30', ciudad:ciud[i%5],
+      respuestas: i===13?{general:4,aplicara:'Mucho'}:{general:g,aplicara:s==='positivo'?'Mucho':s==='neutral'?'Algo':'Poco',
+        experiencia: s==='positivo'?'Me llevo herramientas para la adaptación de audífonos; me sorprendieron los casos clínicos reales. Cambiaría tener más tiempo para preguntas.':s==='neutral'?'Buen contenido, aunque algunos temas fueron muy rápidos.':'El contenido estuvo bien, pero los horarios se cruzaron y la plataforma se caía.',
+        aporte:['Casos clínicos','Tecnología en audífonos','Estrategia y gestión','Experiencia del paciente','Networking'][i%5===3?2:i%3], formato:['Presencial','Mixto','Virtual'][i%3], volveria:s==='negativo'?'Tal vez':'Sí', gusto:s==='negativo'?'Los casos clínicos':'Los docentes y los casos clínicos reales', mejorar:s==='positivo'?'Más tiempo para preguntas; me gustaría ver tinnitus':'Organizar mejor los horarios y la plataforma'},
+      evaluacion: i===13||i===12?null:{sentimiento:s,satisfaccion:s==='positivo'?9:s==='neutral'?6:3,temas:s==='negativo'?temasN[i%3]:temasP[i%4],fortalezas:['Nivel de los docentes'],mejoras:s==='positivo'?['Más espacio de preguntas']:['Organización de horarios'],alerta:s==='negativo'&&i===3,motivo_alerta:'Reporta fallas repetidas en la plataforma',calidad_respuesta:'media',resumen:s==='positivo'?'Muy satisfecho con docentes y casos clínicos.':s==='neutral'?'Buen contenido, pero la logística le restó.':'Molesto por horarios y fallas de plataforma.'},
+      creado:new Date().toISOString(), completado:new Date().toISOString()};
+  });
+  return {preguntas:[
+    {id:'general',tipo:'escala',texto:'¿Cómo calificas el diplomado en general?'},{id:'aplicara',tipo:'opciones',texto:'¿Qué tanto vas a aplicar lo aprendido en tu consulta?'},
+    {id:'experiencia',tipo:'abierta',texto:'Cuéntanos con tus palabras cómo te fue en el diplomado'},{id:'aporte',tipo:'lista',texto:'¿Qué parte te aportó más?'},
+    {id:'formato',tipo:'opciones',texto:'¿Qué formato prefieres para el próximo diplomado?'},{id:'volveria',tipo:'opciones',texto:'¿Te gustaría participar en otro diplomado de Aural?'},
+    {id:'gusto',tipo:'abierta',texto:'¿Qué fue lo que más te gustó del diplomado?'},{id:'mejorar',tipo:'abierta',texto:'¿Qué mejorarías o qué tema te gustaría ver en el próximo?'}],
+    participantes:ps, claude:true,
+    analisis:{creado:new Date().toISOString(),total:13,titular:'Ejemplo: alta valoración académica; la logística es el punto débil.',
+      hallazgos:['9 de 13 participantes califican el diplomado con 4 o 5','Los docentes son la fortaleza más mencionada (8 menciones)','Las quejas se concentran en horarios y plataforma virtual'],
+      recomendaciones:['Publicar el cronograma con dos semanas de anticipación','Probar la plataforma antes de cada sesión','Reservar 15 minutos de preguntas por clase'],
+      temas_recurrentes:[{tema:'docentes',menciones:8,tono:'positivo'},{tema:'casos clínicos',menciones:6,tono:'positivo'},{tema:'logística',menciones:3,tono:'negativo'}],
+      riesgos:['Camilo Ortiz: reporta fallas repetidas en la plataforma'],por_segmento:'Ejemplo: los otorrinos califican más bajo la duración.'}};
+}
+cargar();
+</script>
+</body>
+</html>

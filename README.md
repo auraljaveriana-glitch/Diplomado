@@ -1,44 +1,43 @@
-# Bot de diplomas por WhatsApp — Aural
+# Bot del diplomado — Aural
 
-Cuando alguien escribe al número, el bot pide su nombre completo, se lo confirma con botones (**Sí, generar** / **Corregir**) y le envía el diploma en PDF.
+El bot de WhatsApp pide autorización de datos, nombre, profesión, teléfono, dirección y ciudad. Después hace la encuesta de satisfacción y envía el diploma en PDF. Claude evalúa cada encuesta y todo se ve en el panel `/panel`.
 
 ## Archivos
-- `app.py` — webhook de WhatsApp Cloud API (FastAPI) y flujo de conversación.
-- `diploma.py` — genera el PDF. Se prueba solo con: `python diploma.py "Nombre Apellido"`.
-- `assets/` (opcional):
-  - `plantilla.png` — si pones aquí el diseño del diploma (horizontal, tamaño carta), el bot solo escribe el nombre encima. Ajusta la altura con `DIPLOMA_NOMBRE_Y` (0.50 = mitad de la hoja).
-  - `logo.png` — logo de Aural para el diseño por defecto.
-  - `fonts/Gotham-Bold.otf`, `Gotham-Book.otf`, `Gotham-Light.otf` — si están, se usan en vez de la fuente de respaldo.
+| Archivo | Qué hace |
+|---|---|
+| `app.py` | Webhook de WhatsApp, flujo de conversación y API del panel |
+| `encuesta.py` | **Preguntas de la encuesta** (edítalas aquí) |
+| `evaluar.py` | Instrucciones y llamadas a Claude (evaluación individual y análisis general) |
+| `db.py` | Base de datos (Postgres en Railway, SQLite en local) |
+| `diploma.py` | Genera el PDF |
+| `panel.html` | Panel con la red neuronal |
+| `assets/` | Fuentes; opcional `plantilla.png` y `logo.png` |
 
-## Configuración (.env)
+## Variables en Railway
 ```
-WHATSAPP_TOKEN=token_permanente_del_usuario_del_sistema
-WHATSAPP_PHONE_NUMBER_ID=id_del_numero
+WHATSAPP_TOKEN=token permanente
+WHATSAPP_PHONE_NUMBER_ID=1409542185583550
 WEBHOOK_VERIFY_TOKEN=aural-diplomas
-
-# Textos del diploma (opcionales)
-DIPLOMA_TITULO=DIPLOMA
-DIPLOMA_SUBTITULO=Aural Centros Auditivos otorga el presente reconocimiento a
-DIPLOMA_MOTIVO=Por su participación en el Diplomado Audiología Estratégica
-DIPLOMA_CIUDAD=Colombia
-DIPLOMA_FIRMA_NOMBRE=Juan Pablo Peláez
-DIPLOMA_FIRMA_CARGO=Gerente General
+ANTHROPIC_API_KEY=clave de Claude (puede ser la misma de Amanda)
+PANEL_USER=aural
+PANEL_PASSWORD=una contraseña fuerte
+POLITICA_URL=https://... (política de tratamiento de datos de Aural, opcional)
+DATABASE_URL=la agrega Railway automáticamente al crear Postgres
+CLAUDE_MODEL=claude-sonnet-5-5 (opcional)
 ```
 
-## Ejecutar
-```
-pip install -r requirements.txt
-uvicorn app:app --host 0.0.0.0 --port 8000
-```
-Para probar en local, exponlo con `ngrok http 8000`.
+## Base de datos (obligatorio en Railway)
+En el proyecto de Railway: **+ New → Database → PostgreSQL**. Luego, en el servicio del bot → Variables → **Add reference** → `DATABASE_URL` de Postgres.
+Sin esto los datos se guardan en un archivo que se borra en cada despliegue.
 
-## Conectar en Meta
-1. developers.facebook.com → tu app → WhatsApp → Configuración.
-2. Webhook: URL `https://TU-DOMINIO/webhook`, token de verificación igual a `WEBHOOK_VERIFY_TOKEN`.
-3. Suscríbete al campo **messages**.
+## Panel
+- `https://TU-URL/panel` pide usuario y contraseña (`PANEL_USER` / `PANEL_PASSWORD`).
+- `https://TU-URL/panel?demo` muestra datos de ejemplo.
+- Red: participante → profesión → temas que detecta Claude → sentimiento. Pasa el mouse para ver la ruta y haz clic para ver el detalle.
+- **Evaluar pendientes**: evalúa con Claude las encuestas que todavía no tienen evaluación.
+- **Análisis general con Claude**: hallazgos, temas recurrentes, riesgos y recomendaciones.
+- **Exportar CSV**: todos los datos, con las columnas de Claude, para abrir en Excel.
 
-⚠️ Un número solo puede tener un webhook. Si usas el mismo número de Amanda, este bot reemplaza a Amanda. Para el diplomado, lo ideal es un número aparte (se agrega en la misma WABA) o meter este flujo dentro de Amanda cuando el mensaje diga "diploma".
-
-## Notas
-- El estado de cada conversación se guarda en memoria: si el servidor se reinicia, la persona solo tiene que volver a escribir. Para varios workers, pásalo a Redis o Supabase.
-- Para que el bot inicie la conversación (por ejemplo, avisar a todos los del diplomado), Meta exige una plantilla aprobada. Si la persona escribe primero, no hace falta.
+## Flujo del bot
+1. Autorización Ley 1581 → 2. Datos → confirmación → 3. Encuesta (8 preguntas, ver encuesta.py) → 4. Diploma → 5. Claude evalúa en segundo plano.
+Si alguien ya terminó y escribe *diploma*, se le reenvía el PDF.

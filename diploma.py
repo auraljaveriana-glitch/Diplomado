@@ -86,7 +86,7 @@ def limpiar_nombre(texto: str) -> str:
 def nombre_archivo(nombre: str) -> str:
     plano = unicodedata.normalize("NFKD", nombre).encode("ascii", "ignore").decode()
     plano = "".join(c if c.isalnum() else "_" for c in plano).strip("_")
-    return f"Diploma_{plano or 'Aural'}.pdf"
+    return f"Certificado_{plano or 'Aural'}.pdf"
 
 
 def _ajustar_tamano(c, texto, fuente, maximo, ancho_max):
@@ -101,8 +101,51 @@ def _fecha_hoy():
     return f"{CIUDAD}, {h.day} de {MESES[h.month - 1]} de {h.year}"
 
 
+PLANTILLA_PDF = BASE / "assets" / "plantilla.pdf"
+# Zona y estilo del nombre en el certificado oficial (en puntos PDF)
+PDF_ZONA_NOMBRE = (60, 199, 782, 272)
+PDF_BASE_Y = 255.74
+PDF_TAM = 53
+PDF_ANCHO_MAX = 600
+PDF_COLOR = (0x57 / 255, 0x5B / 255, 0x5C / 255)
+
+
+def _fuente_nombre_pdf():
+    """Gotham Book Italic si está en assets/fonts; si no, Montserrat Italic ajustada al ancho de Gotham."""
+    import pymupdf
+    for n in ("Gotham-BookItalic.otf", "Gotham-BookItalic.ttf"):
+        if (BASE / "assets" / "fonts" / n).exists():
+            return BASE / "assets" / "fonts" / n, 1.0
+    ruta = BASE / "assets" / "fonts" / "Montserrat-400-Italic.ttf"
+    # En el original, "Diana Marcela Ceballos" mide 556 pt a 53 pt con Gotham
+    ref = pymupdf.Font(fontfile=str(ruta)).text_length("Diana Marcela Ceballos", PDF_TAM)
+    return ruta, 556.45 / ref
+
+
+def _generar_desde_pdf(nombre: str, salida: Path) -> Path:
+    import pymupdf
+    doc = pymupdf.open(str(PLANTILLA_PDF))
+    pg = doc[0]
+    pg.add_redact_annot(pymupdf.Rect(*PDF_ZONA_NOMBRE))
+    pg.apply_redactions(images=pymupdf.PDF_REDACT_IMAGE_NONE,
+                        graphics=pymupdf.PDF_REDACT_LINE_ART_NONE)
+    ruta, factor = _fuente_nombre_pdf()
+    f = pymupdf.Font(fontfile=str(ruta))
+    tam = PDF_TAM * factor
+    while f.text_length(nombre, tam) > PDF_ANCHO_MAX and tam > 24:
+        tam -= 0.5
+    x = (pg.rect.width - f.text_length(nombre, tam)) / 2
+    pg.insert_font(fontname="nombre", fontfile=str(ruta))
+    pg.insert_text((x, PDF_BASE_Y), nombre, fontname="nombre", fontsize=tam, color=PDF_COLOR)
+    doc.set_metadata({**doc.metadata, "title": f"Certificado - {nombre}"})
+    doc.save(str(salida), garbage=3, deflate=True)
+    return salida
+
+
 def generar_diploma(nombre: str, salida: Path) -> Path:
     nombre = limpiar_nombre(nombre)
+    if PLANTILLA_PDF.exists():
+        return _generar_desde_pdf(nombre, salida)
     ancho, alto = landscape(letter)
     c = canvas.Canvas(str(salida), pagesize=(ancho, alto))
     c.setTitle(f"Diploma - {nombre}")
