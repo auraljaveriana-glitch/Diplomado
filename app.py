@@ -46,7 +46,9 @@ BASE = Path(__file__).parent
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("bot-diplomas")
 app = FastAPI()
-app.mount("/static", StaticFiles(directory=BASE / "web"), name="static")
+app.mount("/static", StaticFiles(directory=BASE / "web", check_dir=False), name="static")
+if not (BASE / "web").exists():
+    logging.getLogger("bot-diplomas").warning("Falta la carpeta web/ (logos): sube web/logo-blanco.png y web/logo-color.png")
 procesados: set[str] = set()
 tareas: set[asyncio.Task] = set()
 
