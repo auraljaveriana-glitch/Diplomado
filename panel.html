@@ -3,7 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Diplomado · Red de respuestas · Aural</title>
+<title>Panel · Diplomado Audiología Estratégica · Aural</title>
+<link rel="icon" href="/static/logo-color.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#040D1C; --surface:#071427; --surface-2:#0C1D36; --line:#173055;
@@ -17,10 +20,19 @@
   body{background:radial-gradient(1200px 600px at 70% -10%,#0E2A4F 0%,transparent 60%),var(--bg);min-height:100vh}
   button{font:inherit;cursor:pointer}
   header{display:flex;align-items:center;gap:16px;padding:18px 28px;border-bottom:1px solid var(--line)}
-  .logo{font-weight:700;font-size:22px;letter-spacing:.5px;color:#fff}
-  .logo small{display:block;font-size:8px;letter-spacing:2px;color:var(--ink-3);font-weight:500}
-  header h1{font-size:16px;font-weight:600;margin:0;color:var(--ink-2)}
-  header h1 b{color:var(--ink)}
+  header{position:sticky;top:0;z-index:5;background:rgba(4,13,28,.82);backdrop-filter:blur(10px)}
+  .logo{height:40px;display:block}
+  .sep{width:1px;height:34px;background:var(--line)}
+  header h1{font-size:13px;font-weight:400;margin:0;color:var(--ink-3);letter-spacing:.3px;line-height:1.3}
+  header h1 b{display:block;color:var(--ink);font-weight:600;font-size:16px;letter-spacing:0}
+  .salir{color:var(--ink-3);text-decoration:none;font-size:13px;padding:8px 10px;border-radius:8px}
+  .salir:hover{color:var(--ink);background:var(--surface-2)}
+  .bienvenida{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .bienvenida h2{margin:0;font-size:24px;font-weight:300;letter-spacing:-.3px}
+  .bienvenida h2 b{font-weight:600}
+  .bienvenida .act{color:var(--ink-3);font-size:12px}
+  .kpi{position:relative;overflow:hidden}
+  .kpi::before{content:"";position:absolute;left:0;top:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent)}
   .sp{flex:1}
   .btn{background:var(--surface-2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 14px;display:inline-flex;gap:8px;align-items:center}
   .btn:hover{border-color:var(--accent)}
@@ -89,15 +101,21 @@
 </head>
 <body>
 <header>
-  <div class="logo">aural<small>CENTROS AUDITIVOS</small></div>
-  <h1><b>Diplomado Audiología Estratégica</b> · Red de respuestas</h1>
+  <img class="logo" src="/static/logo-blanco.png" alt="Aural Centros Auditivos con sonido Widex">
+  <div class="sep"></div>
+  <h1><b>Diplomado Audiología Estratégica</b>Panel de resultados</h1>
   <div class="sp"></div>
   <button class="btn" id="bPend" title="Evalúa con Claude las encuestas completas que aún no tienen evaluación">✦ Evaluar pendientes</button>
   <button class="btn pri" id="bGen">✦ Análisis general con Claude</button>
   <a class="btn" id="bCsv" href="/api/exportar.csv" style="text-decoration:none">⇩ Exportar CSV</a>
+  <a class="salir" href="/logout" title="Cerrar sesión">Salir ⎋</a>
 </header>
 
 <main>
+  <div class="bienvenida">
+    <h2 id="saludo">Hola 👋 <b>así va el diplomado</b></h2>
+    <div class="act" id="act"></div>
+  </div>
   <section class="kpis" id="kpis"></section>
 
   <div class="filters">
@@ -158,7 +176,9 @@ function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';se
 async function cargar(){
   if (DEMO){ D = demo(); }
   else {
-    const r = await fetch('/api/datos'); D = await r.json();
+    const r = await fetch('/api/datos');
+    if (r.status === 401) { location.href = '/login'; return; }
+    D = await r.json();
   }
   if (!D.claude && !DEMO){ $('#bPend').disabled = $('#bGen').disabled = true; $('#bGen').title = 'Falta ANTHROPIC_API_KEY en el servidor'; }
   const ciudades = [...new Set(D.participantes.map(p=>p.ciudad).filter(Boolean))].sort();
@@ -173,7 +193,7 @@ function filtrados(){
     (!c || p.ciudad === c) && (!s || sentDe(p) === s));
 }
 
-function render(){ kpis(); red(); tabla(); analisis(); if (sel) detalle(sel); }
+function render(){ $('#act').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}) + (DEMO ? ' · datos de ejemplo' : ' · se actualiza cada minuto'); kpis(); red(); tabla(); analisis(); if (sel) detalle(sel); }
 
 function kpis(){
   const todos = D.participantes, comp = todos.filter(p=>p.paso==='terminado');
@@ -366,7 +386,7 @@ $('#bPend').onclick = async () => {
 };
 ['#fBuscar','#fCiudad','#fSent'].forEach(s=>$(s).addEventListener('input',()=>{ red(); tabla(); }));
 addEventListener('resize',()=>red());
-if (!DEMO) setInterval(()=>{ if(document.visibilityState==='visible') fetch('/api/datos').then(r=>r.json()).then(j=>{ D=j; render(); }); }, 60000);
+if (!DEMO) setInterval(()=>{ if(document.visibilityState==='visible') fetch('/api/datos').then(r=>{ if(r.status===401){ location.href='/login'; throw 0; } return r.json(); }).then(j=>{ D=j; render(); }).catch(()=>{}); }, 60000);
 
 /* ---------- Datos de demostración (/panel?demo) ---------- */
 function demo(){

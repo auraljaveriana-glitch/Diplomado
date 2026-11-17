@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ingresar · Diplomado Audiología Estratégica · Aural</title>
+<link rel="icon" href="/static/logo-color.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{--navy:#041E42;--navy-2:#0A2D5C;--teal:#10616F;--turq:#8ED5DE;--gris:#706F6F;--ink:#1B2433}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:"Gotham","Montserrat",system-ui,sans-serif}
+  body{display:grid;grid-template-columns:1.15fr 1fr;min-height:100vh;background:#F4F6FA}
+
+  /* ---------- Lado de marca ---------- */
+  .marca{position:relative;overflow:hidden;color:#fff;
+    background:radial-gradient(900px 600px at 20% 10%,#12407A 0%,transparent 60%),
+               linear-gradient(160deg,#062A57 0%,var(--navy) 55%,#020F24 100%)}
+  #red{position:absolute;inset:0;width:100%;height:100%}
+  .curvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  .marca-contenido{position:relative;z-index:2;height:100%;display:flex;flex-direction:column;justify-content:space-between;padding:56px 64px}
+  .marca-logo img{height:58px;display:block}
+  .marca h1{font-weight:300;font-size:clamp(30px,3.4vw,48px);line-height:1.12;margin:0 0 18px;letter-spacing:-.5px}
+  .marca h1 b{font-weight:600;display:block;color:#fff}
+  .marca h1 span{color:var(--turq)}
+  .marca p{max-width:460px;color:#B9C8DD;font-size:15px;line-height:1.6;margin:0}
+  .pildoras{display:flex;gap:10px;flex-wrap:wrap;margin-top:26px}
+  .pildora{border:1px solid rgba(142,213,222,.35);background:rgba(142,213,222,.08);color:#D6EEF2;border-radius:999px;padding:7px 14px;font-size:12px;letter-spacing:.3px;backdrop-filter:blur(4px)}
+  .pie-marca{color:#7F93B0;font-size:12px;letter-spacing:.4px}
+
+  /* ---------- Formulario ---------- */
+  .acceso{display:flex;align-items:center;justify-content:center;padding:40px 24px;position:relative;
+    background:radial-gradient(600px 400px at 100% 0%,rgba(142,213,222,.18),transparent 70%),#F4F6FA}
+  .tarjeta{width:100%;max-width:400px;background:#fff;border-radius:22px;padding:44px 40px 36px;
+    box-shadow:0 30px 80px -30px rgba(4,30,66,.35),0 2px 6px rgba(4,30,66,.06);
+    animation:entrar .7s cubic-bezier(.2,.8,.2,1) both}
+  @keyframes entrar{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+  .tarjeta img{height:64px;display:block;margin:0 auto 26px}
+  .tarjeta h2{margin:0;text-align:center;color:var(--navy);font-weight:600;font-size:22px}
+  .tarjeta .sub{text-align:center;color:var(--gris);font-size:14px;margin:6px 0 28px}
+  label{display:block;font-size:12px;font-weight:600;color:var(--navy);letter-spacing:.4px;margin:0 0 7px}
+  .campo{position:relative;margin-bottom:18px}
+  .campo svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:18px;height:18px;stroke:#93A0B4}
+  input{width:100%;font:inherit;font-size:15px;color:var(--ink);padding:13px 44px 13px 44px;border:1.5px solid #DCE3EC;border-radius:12px;background:#F8FAFC;outline:none;transition:border-color .15s,box-shadow .15s,background .15s}
+  input:focus{border-color:var(--teal);background:#fff;box-shadow:0 0 0 4px rgba(16,97,111,.12)}
+  .ojo{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:0;padding:6px;cursor:pointer;color:#93A0B4}
+  .ojo svg{position:static;transform:none}
+  button[type=submit]{width:100%;margin-top:8px;border:0;border-radius:12px;padding:14px;font:inherit;font-weight:600;font-size:15px;color:#fff;cursor:pointer;
+    background:linear-gradient(135deg,var(--teal),#0B4C7A);box-shadow:0 10px 24px -10px rgba(16,97,111,.8);transition:transform .15s,box-shadow .15s}
+  button[type=submit]:hover{transform:translateY(-1px);box-shadow:0 14px 28px -10px rgba(16,97,111,.9)}
+  button[type=submit]:disabled{opacity:.7;cursor:wait;transform:none}
+  .error{display:none;background:#FDF0EF;border:1px solid #F3C7C3;color:#9D2235;border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:18px}
+  .seguro{display:flex;gap:8px;align-items:center;justify-content:center;color:#93A0B4;font-size:12px;margin-top:22px}
+  .seguro svg{width:14px;height:14px;stroke:#93A0B4}
+
+  @media (max-width:900px){
+    body{grid-template-columns:1fr}
+    .marca{min-height:300px}
+    .marca-contenido{padding:32px 28px}
+    .marca p,.pildoras,.pie-marca{display:none}
+  }
+  @media (prefers-reduced-motion:reduce){.tarjeta{animation:none}}
+</style>
+</head>
+<body>
+  <section class="marca" aria-hidden="false">
+    <canvas id="red"></canvas>
+    <svg class="curvas" viewBox="0 0 800 900" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="g1" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity=".0"/><stop offset="1" stop-color="#fff" stop-opacity=".07"/></linearGradient>
+      </defs>
+      <path d="M0,760 C220,640 420,860 800,600 L800,900 L0,900Z" fill="url(#g1)"/>
+      <path d="M0,820 C260,720 480,900 800,700 L800,900 L0,900Z" fill="#fff" fill-opacity=".04"/>
+      <g fill="none" stroke="#fff" stroke-opacity=".05">
+        <path d="M-50,300 C200,150 500,450 900,200"/><path d="M-50,330 C200,180 500,480 900,230"/>
+        <path d="M-50,360 C200,210 500,510 900,260"/><path d="M-50,390 C200,240 500,540 900,290"/>
+      </g>
+    </svg>
+    <div class="marca-contenido">
+      <div class="marca-logo"><img src="/static/logo-blanco.png" alt="Aural Centros Auditivos con sonido Widex"></div>
+      <div>
+        <h1><b>Diplomado</b>Audiología <span>Estratégica</span></h1>
+        <p>Resultados de los participantes, sus opiniones y la evaluación de cada respuesta con inteligencia artificial, en una sola red.</p>
+        <div class="pildoras">
+          <span class="pildora">✦ Evaluación con Claude</span>
+          <span class="pildora">Encuestas en tiempo real</span>
+          <span class="pildora">Certificados por WhatsApp</span>
+        </div>
+      </div>
+      <div class="pie-marca">© Aural Centros Auditivos · Colombia – Panamá</div>
+    </div>
+  </section>
+
+  <section class="acceso">
+    <form class="tarjeta" method="post" action="/login" id="form">
+      <img src="/static/logo-color.png" alt="Aural">
+      <h2>Bienvenido</h2>
+      <div class="sub">Ingresa al panel del diplomado</div>
+      <div class="error" id="error">Usuario o contraseña incorrectos.</div>
+
+      <label for="usuario">Usuario</label>
+      <div class="campo">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>
+        <input id="usuario" name="usuario" autocomplete="username" required autofocus>
+      </div>
+
+      <label for="clave">Contraseña</label>
+      <div class="campo">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+        <input id="clave" name="clave" type="password" autocomplete="current-password" required>
+        <button type="button" class="ojo" id="ojo" aria-label="Mostrar contraseña">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+
+      <button type="submit" id="entrar">Ingresar al panel</button>
+      <div class="seguro"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6l8-3Z"/></svg>Acceso privado · datos protegidos (Ley 1581)</div>
+    </form>
+  </section>
+
+<script>
+  const q = new URLSearchParams(location.search);
+  if (q.get('error')) {
+    const e = document.getElementById('error');
+    e.textContent = q.get('error') === 'config'
+      ? 'El panel aún no tiene contraseña configurada (variable PANEL_PASSWORD en Railway).'
+      : 'Usuario o contraseña incorrectos.';
+    e.style.display = 'block';
+  }
+  document.getElementById('ojo').onclick = () => {
+    const c = document.getElementById('clave'); c.type = c.type === 'password' ? 'text' : 'password';
+  };
+  document.getElementById('form').addEventListener('submit', () => {
+    const b = document.getElementById('entrar'); b.disabled = true; b.textContent = 'Ingresando…';
+  });
+
+  /* Red neuronal animada de fondo */
+  const cv = document.getElementById('red'), ctx = cv.getContext('2d');
+  const quieto = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let W, H, nodos = [];
+  function tam(){
+    const r = cv.getBoundingClientRect(), d = devicePixelRatio || 1;
+    W = r.width; H = r.height; cv.width = W*d; cv.height = H*d; ctx.setTransform(d,0,0,d,0,0);
+    const n = Math.round(W*H/9000);
+    nodos = Array.from({length:n}, () => ({x:Math.random()*W, y:Math.random()*H,
+      vx:(Math.random()-.5)*.25, vy:(Math.random()-.5)*.25, r:Math.random()*1.8+.8}));
+  }
+  function cuadro(){
+    ctx.clearRect(0,0,W,H);
+    for (const a of nodos){ if(!quieto){ a.x+=a.vx; a.y+=a.vy; if(a.x<0||a.x>W) a.vx*=-1; if(a.y<0||a.y>H) a.vy*=-1; } }
+    for (let i=0;i<nodos.length;i++) for (let j=i+1;j<nodos.length;j++){
+      const a=nodos[i], b=nodos[j], d=Math.hypot(a.x-b.x,a.y-b.y);
+      if (d<130){ ctx.strokeStyle=`rgba(142,213,222,${(1-d/130)*.22})`; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); }
+    }
+    for (const a of nodos){ ctx.fillStyle='rgba(142,213,222,.75)'; ctx.beginPath(); ctx.arc(a.x,a.y,a.r,0,7); ctx.fill(); }
+    if (!quieto) requestAnimationFrame(cuadro);
+  }
+  addEventListener('resize', ()=>{ tam(); if(quieto) cuadro(); });
+  tam(); cuadro();
+</script>
+</body>
+</html>

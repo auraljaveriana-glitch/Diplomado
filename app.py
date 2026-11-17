@@ -20,9 +20,14 @@ import tempfile
 from pathlib import Path
 
 import httpx
-from fastapi import Depends, FastAPI, HTTPException, Request, Response
-from fastapi.responses import FileResponse, StreamingResponse
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+import base64
+import hashlib
+import hmac
+import time
+
+from fastapi import Depends, FastAPI, Form, HTTPException, Request, Response
+from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 
 import db
 from diploma import generar_diploma, limpiar_nombre, nombre_archivo
@@ -41,6 +46,7 @@ BASE = Path(__file__).parent
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("bot-diplomas")
 app = FastAPI()
+app.mount("/static", StaticFiles(directory=BASE / "web"), name="static")
 procesados: set[str] = set()
 tareas: set[asyncio.Task] = set()
 
@@ -325,18 +331,64 @@ def salud():
 
 
 # ============================ Panel ============================
-seguridad = HTTPBasic()
+SECRETO = (os.getenv("SESSION_SECRET") or hashlib.sha256(f"aural:{PANEL_PASSWORD}".encode()).hexdigest()).encode()
+COOKIE = "aural_panel"
+DURACION = 12 * 3600  # la sesión dura 12 horas
 
 
-def autorizado(cred: HTTPBasicCredentials = Depends(seguridad)):
-    ok = PANEL_PASSWORD and secrets.compare_digest(cred.username, PANEL_USER) and \
-        secrets.compare_digest(cred.password, PANEL_PASSWORD)
+def _firmar(usuario: str, vence: int) -> str:
+    cuerpo = f"{usuario}|{vence}"
+    firma = hmac.new(SECRETO, cuerpo.encode(), hashlib.sha256).hexdigest()
+    return base64.urlsafe_b64encode(f"{cuerpo}|{firma}".encode()).decode()
+
+
+def usuario_sesion(request: Request) -> str | None:
+    try:
+        usuario, vence, firma = base64.urlsafe_b64decode(request.cookies.get(COOKIE, "")).decode().split("|")
+        esperado = hmac.new(SECRETO, f"{usuario}|{vence}".encode(), hashlib.sha256).hexdigest()
+        if PANEL_PASSWORD and hmac.compare_digest(firma, esperado) and int(vence) > time.time():
+            return usuario
+    except Exception:
+        pass
+    return None
+
+
+def autorizado(request: Request):
+    if not usuario_sesion(request):
+        raise HTTPException(401, "Sesión vencida")
+
+
+@app.get("/login")
+def login_pagina(request: Request):
+    if usuario_sesion(request):
+        return RedirectResponse("/panel", 303)
+    return FileResponse(BASE / "login.html")
+
+
+@app.post("/login")
+async def login(usuario: str = Form(...), clave: str = Form(...)):
+    ok = bool(PANEL_PASSWORD) and secrets.compare_digest(usuario.strip().lower(), PANEL_USER.lower()) \
+        and secrets.compare_digest(clave, PANEL_PASSWORD)
     if not ok:
-        raise HTTPException(401, "No autorizado", headers={"WWW-Authenticate": "Basic"})
+        await asyncio.sleep(1.2)  # frena intentos repetidos
+        return RedirectResponse("/login?error=1" if PANEL_PASSWORD else "/login?error=config", 303)
+    r = RedirectResponse("/panel", 303)
+    r.set_cookie(COOKIE, _firmar(PANEL_USER, int(time.time()) + DURACION), max_age=DURACION,
+                 httponly=True, samesite="lax", secure=os.getenv("COOKIE_INSEGURA") != "1")
+    return r
 
 
-@app.get("/panel", dependencies=[Depends(autorizado)])
-def panel():
+@app.get("/logout")
+def logout():
+    r = RedirectResponse("/login", 303)
+    r.delete_cookie(COOKIE)
+    return r
+
+
+@app.get("/panel")
+def panel(request: Request):
+    if not usuario_sesion(request):
+        return RedirectResponse("/login", 303)
     return FileResponse(BASE / "panel.html")
 
 

@@ -31,12 +31,13 @@ En el proyecto de Railway: **+ New → Database → PostgreSQL**. Luego, en el s
 Sin esto los datos se guardan en un archivo que se borra en cada despliegue.
 
 ## Panel
-- `https://TU-URL/panel` pide usuario y contraseña (`PANEL_USER` / `PANEL_PASSWORD`).
-- `https://TU-URL/panel?demo` muestra datos de ejemplo.
+- Entrada: `https://TU-URL/login` (o `/panel`, que te lleva al login). Usuario y contraseña = `PANEL_USER` / `PANEL_PASSWORD`. La sesión dura 12 horas; "Salir" la cierra.
+- `https://TU-URL/panel?demo` (después de ingresar) muestra datos de ejemplo.
 - Red: participante → profesión → temas que detecta Claude → sentimiento. Pasa el mouse para ver la ruta y haz clic para ver el detalle.
 - **Evaluar pendientes**: evalúa con Claude las encuestas que todavía no tienen evaluación.
 - **Análisis general con Claude**: hallazgos, temas recurrentes, riesgos y recomendaciones.
 - **Exportar CSV**: todos los datos, con las columnas de Claude, para abrir en Excel.
+- Logos en `web/` (sacados del certificado oficial).
 
 ## Flujo del bot
 1. Autorización Ley 1581 → 2. Datos → confirmación → 3. Encuesta (8 preguntas, ver encuesta.py) → 4. Diploma → 5. Claude evalúa en segundo plano.
