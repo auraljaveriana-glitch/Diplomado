@@ -148,7 +148,7 @@
     <h2>Todos los registros</h2>
     <table><thead><tr>
       <th>Nombre</th><th>Profesión</th><th>Ciudad</th><th>Estado</th>
-      <th class="num">General</th><th>Aplicará</th><th>Más aportó</th><th>Sentimiento (Claude)</th><th>Resumen</th>
+      <th class="num">General</th><th>Aplicará</th><th>Módulo que más aportó</th><th>Sentimiento (Claude)</th><th>Resumen</th>
     </tr></thead><tbody id="tabla"></tbody></table>
   </div>
 </main>
@@ -208,7 +208,7 @@ function kpis(){
     ['Encuestas completas', comp.length, `${todos.length - comp.length} en curso`],
     ['Calificación general', prom==null?'—':prom.toFixed(1), 'promedio de 1 a 5'],
     ['Aplicará "mucho"', pct('aplicara','Mucho'), `volvería: ${pct('volveria','Sí')} dice sí`],
-    ['Lo que más aportó', ap, aps, true],
+    ['Módulo que más aportó', ap, aps, true],
     ['Formato preferido', fo, fos, true],
     ['Sentimiento positivo', ev.length? Math.round(100*pos/ev.length)+'%':'—', `${ev.length} evaluadas · ${alertas} alerta${alertas===1?'':'s'}`],
   ];
@@ -401,13 +401,13 @@ function demo(){
     return {wa_id:'5730000000'+i, paso: i===13?'encuesta:3':'terminado', nombre:n, profesion:profs[i%5], telefono:'+5730000000'+i, direccion:'Calle '+(10+i)+' # 20-30', ciudad:ciud[i%5],
       respuestas: i===13?{general:4,aplicara:'Mucho'}:{general:g,aplicara:s==='positivo'?'Mucho':s==='neutral'?'Algo':'Poco',
         experiencia: s==='positivo'?'Me llevo herramientas para la adaptación de audífonos; me sorprendieron los casos clínicos reales. Cambiaría tener más tiempo para preguntas.':s==='neutral'?'Buen contenido, aunque algunos temas fueron muy rápidos.':'El contenido estuvo bien, pero los horarios se cruzaron y la plataforma se caía.',
-        aporte:['Casos clínicos','Tecnología en audífonos','Estrategia y gestión','Experiencia del paciente','Networking'][i%5===3?2:i%3], formato:['Presencial','Mixto','Virtual'][i%3], volveria:s==='negativo'?'Tal vez':'Sí', gusto:s==='negativo'?'Los casos clínicos':'Los docentes y los casos clínicos reales', mejorar:s==='positivo'?'Más tiempo para preguntas; me gustaría ver tinnitus':'Organizar mejor los horarios y la plataforma'},
+        aporte:['M6 Neurociencia decisión','M8 Método REEC','M3 Finanzas','M7 Círculo Dorado','M9 Consultorio rentable'][i%5===3?2:i%3], formato:['Presencial','Mixto','Virtual'][i%3], volveria:s==='negativo'?'Tal vez':'Sí', gusto:s==='negativo'?'Los casos clínicos':'Los docentes y los casos clínicos reales', mejorar:s==='positivo'?'Más tiempo para preguntas; me gustaría ver tinnitus':'Organizar mejor los horarios y la plataforma'},
       evaluacion: i===13||i===12?null:{sentimiento:s,satisfaccion:s==='positivo'?9:s==='neutral'?6:3,temas:s==='negativo'?temasN[i%3]:temasP[i%4],fortalezas:['Nivel de los docentes'],mejoras:s==='positivo'?['Más espacio de preguntas']:['Organización de horarios'],alerta:s==='negativo'&&i===3,motivo_alerta:'Reporta fallas repetidas en la plataforma',calidad_respuesta:'media',resumen:s==='positivo'?'Muy satisfecho con docentes y casos clínicos.':s==='neutral'?'Buen contenido, pero la logística le restó.':'Molesto por horarios y fallas de plataforma.'},
       creado:new Date().toISOString(), completado:new Date().toISOString()};
   });
   return {preguntas:[
     {id:'general',tipo:'escala',texto:'¿Cómo calificas el diplomado en general?'},{id:'aplicara',tipo:'opciones',texto:'¿Qué tanto vas a aplicar lo aprendido en tu consulta?'},
-    {id:'experiencia',tipo:'abierta',texto:'Cuéntanos con tus palabras cómo te fue en el diplomado'},{id:'aporte',tipo:'lista',texto:'¿Qué parte te aportó más?'},
+    {id:'experiencia',tipo:'abierta',texto:'Cuéntanos con tus palabras cómo te fue en el diplomado'},{id:'aporte',tipo:'lista',texto:'¿Qué módulo te aportó más?'},
     {id:'formato',tipo:'opciones',texto:'¿Qué formato prefieres para el próximo diplomado?'},{id:'volveria',tipo:'opciones',texto:'¿Te gustaría participar en otro diplomado de Aural?'},
     {id:'gusto',tipo:'abierta',texto:'¿Qué fue lo que más te gustó del diplomado?'},{id:'mejorar',tipo:'abierta',texto:'¿Qué mejorarías o qué tema te gustaría ver en el próximo?'}],
     participantes:ps, claude:true,

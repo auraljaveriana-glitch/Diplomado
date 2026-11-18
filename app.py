@@ -74,11 +74,17 @@ async def botones(to, body, opciones: list[tuple[str, str]]):
                                for i, t in opciones[:3]]}}})
 
 
-async def lista(to, body, boton, filas: list[tuple[str, str]]):
+async def lista(to, body, boton, filas: list[tuple[str, str]], descripciones: list[str] | None = None):
+    filas_api = []
+    for n, (i, t) in enumerate(filas[:10]):
+        fila = {"id": i, "title": t[:24]}
+        if descripciones and n < len(descripciones):
+            d = descripciones[n]
+            fila["description"] = d if len(d) <= 72 else d[:71] + "…"
+        filas_api.append(fila)
     await _post({"to": to, "type": "interactive", "interactive": {
         "type": "list", "body": {"text": body},
-        "action": {"button": boton[:20], "sections": [{"title": "Opciones", "rows": [
-            {"id": i, "title": t[:24]} for i, t in filas[:10]]}]}}})
+        "action": {"button": boton[:20], "sections": [{"title": "Opciones", "rows": filas_api}]}}})
 
 
 async def enviar_pdf(to, ruta: Path, nombre_doc, caption):
@@ -157,7 +163,8 @@ async def preguntar_encuesta(tel, idx):
     elif q["tipo"] == "opciones":
         await botones(tel, encabezado, [(f"op{i}", o) for i, o in enumerate(q["opciones"])])
     elif q["tipo"] == "lista":
-        await lista(tel, encabezado, "Elegir", [(f"op{i}", o) for i, o in enumerate(q["opciones"])])
+        await lista(tel, encabezado, "Ver módulos" if q["id"] == "aporte" else "Elegir",
+                    [(f"op{i}", o) for i, o in enumerate(q["opciones"])], q.get("descripciones"))
     else:
         await texto(tel, encabezado)
 

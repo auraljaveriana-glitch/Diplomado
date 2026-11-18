@@ -5,7 +5,11 @@ import re
 
 from anthropic import AsyncAnthropic
 
-from encuesta import PREGUNTAS
+from encuesta import MODULOS, PREGUNTAS
+
+CONTEXTO = ("Diplomado Audiología Estratégica: dirección, rentabilidad y crecimiento auditivo. "
+            "Responsable: Rafael Leonardo Parada Alvarado. 10 horas, webinar por Teams, miércoles cada 15 días. "
+            "Módulos:\n" + "\n".join(f"- {m['corto']}: {m['titulo']}" for m in MODULOS))
 
 MODELO = os.getenv("CLAUDE_MODEL", "claude-sonnet-5-5")
 _cliente = None
@@ -34,11 +38,12 @@ def _respuestas_legibles(p: dict) -> str:
 
 SISTEMA_INDIVIDUAL = """Eres analista de calidad educativa de Aural Centros Auditivos (Colombia).
 Evalúas la encuesta de satisfacción de un participante del Diplomado Audiología Estratégica.
+Cuando un comentario se refiera a un módulo, usa el nombre corto del módulo como tema (p. ej. "M8 Método REEC").
 Responde SOLO con un objeto JSON válido, sin texto adicional, con estas claves:
 {
   "sentimiento": "positivo" | "neutral" | "negativo",
   "satisfaccion": número entero de 1 a 10 (tu lectura global, combinando notas y comentarios),
-  "temas": lista de 1 a 4 temas cortos (2-3 palabras, minúscula, en español, reutilizables entre participantes, p. ej. "docentes", "casos clínicos", "logística", "duración", "material de apoyo", "networking"),
+  "temas": lista de 1 a 4 temas cortos (2-3 palabras, minúscula, en español, reutilizables entre participantes, p. ej. "M6 Neurociencia decisión", "docente", "horario", "plataforma Teams", "duración", "aplicación práctica"),
   "fortalezas": lista corta de lo que valoró,
   "mejoras": lista corta de lo que pide mejorar,
   "alerta": true si hay una queja seria o algo que requiera contactar a la persona,
@@ -51,7 +56,7 @@ Responde SOLO con un objeto JSON válido, sin texto adicional, con estas claves:
 async def evaluar_participante(p: dict) -> dict:
     perfil = f"Profesión: {p.get('profesion')}\nCiudad: {p.get('ciudad')}"
     msg = await cliente().messages.create(
-        model=MODELO, max_tokens=800, system=SISTEMA_INDIVIDUAL,
+        model=MODELO, max_tokens=800, system=SISTEMA_INDIVIDUAL + "\n\n" + CONTEXTO,
         messages=[{"role": "user", "content": f"{perfil}\n\nRespuestas:\n{_respuestas_legibles(p)}"}],
     )
     datos = _json(msg.content[0].text)
@@ -61,6 +66,7 @@ async def evaluar_participante(p: dict) -> dict:
 
 SISTEMA_GENERAL = """Eres analista de calidad educativa de Aural Centros Auditivos (Colombia).
 Recibes todas las encuestas del Diplomado Audiología Estratégica (con la evaluación previa de cada una).
+Incluye en los hallazgos qué módulos se valoraron más y cuáles casi no se mencionan.
 Responde SOLO con JSON válido:
 {
   "titular": una frase que resuma cómo les fue,
@@ -83,7 +89,7 @@ async def analisis_general(lista: list[dict]) -> dict:
         })
     claves = "\n".join(f"- {q['id']}: {q['texto'].replace('*', '')}" for q in PREGUNTAS)
     msg = await cliente().messages.create(
-        model=MODELO, max_tokens=2500, system=SISTEMA_GENERAL,
+        model=MODELO, max_tokens=2500, system=SISTEMA_GENERAL + "\n\n" + CONTEXTO,
         messages=[{"role": "user", "content":
                    f"Preguntas:\n{claves}\n\n{len(compacto)} encuestas:\n"
                    + json.dumps(compacto, ensure_ascii=False)}],
