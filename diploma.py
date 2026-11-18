@@ -111,31 +111,44 @@ PDF_COLOR = (0x57 / 255, 0x5B / 255, 0x5C / 255)
 
 
 def _fuente_nombre_pdf():
-    """Gotham Book Italic si está en assets/fonts; si no, Montserrat Italic ajustada al ancho de Gotham."""
+    """Gotham Book Italic si está en assets/fonts; si no, Montserrat Italic ajustada al ancho de Gotham.
+    Devuelve (bytes de la fuente, factor de tamaño)."""
     import pymupdf
     for n in ("Gotham-BookItalic.otf", "Gotham-BookItalic.ttf"):
         if (BASE / "assets" / "fonts" / n).exists():
-            return BASE / "assets" / "fonts" / n, 1.0
+            return (BASE / "assets" / "fonts" / n).read_bytes(), 1.0
     ruta = BASE / "assets" / "fonts" / "Montserrat-400-Italic.ttf"
+    if ruta.exists():
+        datos = ruta.read_bytes()
+    else:
+        from recursos import FUENTE_NOMBRE
+        datos = FUENTE_NOMBRE
     # En el original, "Diana Marcela Ceballos" mide 556 pt a 53 pt con Gotham
-    ref = pymupdf.Font(fontfile=str(ruta)).text_length("Diana Marcela Ceballos", PDF_TAM)
-    return ruta, 556.45 / ref
+    ref = pymupdf.Font(fontbuffer=datos).text_length("Diana Marcela Ceballos", PDF_TAM)
+    return datos, 556.45 / ref
+
+
+def _plantilla_bytes() -> bytes:
+    if PLANTILLA_PDF.exists():
+        return PLANTILLA_PDF.read_bytes()
+    from recursos import PLANTILLA_PDF as INCLUIDA
+    return INCLUIDA
 
 
 def _generar_desde_pdf(nombre: str, salida: Path) -> Path:
     import pymupdf
-    doc = pymupdf.open(str(PLANTILLA_PDF))
+    doc = pymupdf.open(stream=_plantilla_bytes(), filetype="pdf")
     pg = doc[0]
     pg.add_redact_annot(pymupdf.Rect(*PDF_ZONA_NOMBRE))
     pg.apply_redactions(images=pymupdf.PDF_REDACT_IMAGE_NONE,
                         graphics=pymupdf.PDF_REDACT_LINE_ART_NONE)
-    ruta, factor = _fuente_nombre_pdf()
-    f = pymupdf.Font(fontfile=str(ruta))
+    fuente, factor = _fuente_nombre_pdf()
+    f = pymupdf.Font(fontbuffer=fuente)
     tam = PDF_TAM * factor
     while f.text_length(nombre, tam) > PDF_ANCHO_MAX and tam > 24:
         tam -= 0.5
     x = (pg.rect.width - f.text_length(nombre, tam)) / 2
-    pg.insert_font(fontname="nombre", fontfile=str(ruta))
+    pg.insert_font(fontname="nombre", fontbuffer=fuente)
     pg.insert_text((x, PDF_BASE_Y), nombre, fontname="nombre", fontsize=tam, color=PDF_COLOR)
     doc.set_metadata({**doc.metadata, "title": f"Certificado - {nombre}"})
     doc.save(str(salida), garbage=3, deflate=True)
@@ -144,8 +157,8 @@ def _generar_desde_pdf(nombre: str, salida: Path) -> Path:
 
 def generar_diploma(nombre: str, salida: Path) -> Path:
     nombre = limpiar_nombre(nombre)
-    if PLANTILLA_PDF.exists():
-        return _generar_desde_pdf(nombre, salida)
+    # Siempre el certificado oficial (desde assets/ o desde recursos.py)
+    return _generar_desde_pdf(nombre, salida)
     ancho, alto = landscape(letter)
     c = canvas.Canvas(str(salida), pagesize=(ancho, alto))
     c.setTitle(f"Diploma - {nombre}")
