@@ -94,6 +94,13 @@
   .ag .tit{font-size:17px;color:#fff;font-weight:600}
   .tooltip{position:fixed;pointer-events:none;background:#0B1B33;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--ink);max-width:260px;display:none;z-index:10;box-shadow:0 8px 24px rgba(0,0,0,.4)}
   .muted{color:var(--ink-3)}
+  .zona-borrar{border-top:1px solid var(--line);margin-top:16px;padding-top:14px}
+  .btn.borrar{background:transparent;color:#F0A39C;border-color:rgba(224,101,92,.45)}
+  .btn.borrar:hover{border-color:var(--neg)}
+  .btn.borrar-si{background:var(--neg);border-color:var(--neg);color:#fff;white-space:nowrap}
+  .confirmar{background:rgba(224,101,92,.1);border:1px solid rgba(224,101,92,.45);border-radius:8px;padding:10px 12px}
+  .confirmar p{margin:0 0 10px;color:var(--ink-2)}
+  [hidden]{display:none!important}
   .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--teal);color:#fff;padding:10px 16px;border-radius:8px;display:none}
   @media (max-width:1100px){.grid{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}}
   @media (prefers-reduced-motion:reduce){.pulse{animation:none}}
@@ -335,7 +342,23 @@ function detalle(wa){
   } else h += `<p class="muted">${p.paso==='terminado'?'Todavía no tiene evaluación.':'Se evalúa cuando termine la encuesta.'}</p>`;
   if (p.paso==='terminado') h += `<button class="btn" id="bEval">✦ ${e?'Volver a evaluar':'Evaluar ahora'}</button>`;
   h += `</div>`;
+  h += `<div class="zona-borrar"><button class="btn borrar" id="bBorrar">🗑 Eliminar registro</button>
+    <div class="confirmar" id="confBorrar" hidden>
+      <p>¿Eliminar a <b>${esc(p.nombre||'+'+p.wa_id)}</b>? Se borran sus datos, respuestas y evaluación. No se puede deshacer. Si vuelve a escribir al bot, empieza de cero.</p>
+      <div style="display:flex;gap:8px"><button class="btn borrar-si" id="bBorrarSi">Sí, eliminar</button><button class="btn" id="bBorrarNo">Cancelar</button></div>
+    </div></div>`;
   $('#detalle').innerHTML = h;
+  $('#bBorrar').onclick = () => { $('#confBorrar').hidden = false; $('#bBorrar').hidden = true; };
+  $('#bBorrarNo').onclick = () => { $('#confBorrar').hidden = true; $('#bBorrar').hidden = false; };
+  $('#bBorrarSi').onclick = async () => {
+    if (DEMO) { D.participantes = D.participantes.filter(x=>x.wa_id!==wa); sel=null; $('#detalle').innerHTML='<div class="vacio">Registro eliminado (demo).</div>'; render(); return; }
+    const bt = $('#bBorrarSi'); bt.disabled = true; bt.textContent = 'Eliminando…';
+    const r = await fetch('/api/participantes/'+encodeURIComponent(wa), {method:'DELETE'});
+    if (r.status === 401) { location.href = '/login'; return; }
+    if (r.ok) { D.participantes = D.participantes.filter(x=>x.wa_id!==wa); sel=null;
+      $('#detalle').innerHTML='<div class="vacio">Registro eliminado.</div>'; render(); toast('Registro eliminado'); }
+    else { toast('No se pudo eliminar'); bt.disabled=false; bt.textContent='Sí, eliminar'; }
+  };
   const b = $('#bEval');
   if (b) b.onclick = async () => {
     if (DEMO) return toast('En modo demo no se llama a Claude');

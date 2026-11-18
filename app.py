@@ -418,6 +418,15 @@ async def api_evaluar(wa_id: str):
     return ev
 
 
+@app.delete("/api/participantes/{wa_id}", dependencies=[Depends(autorizado)])
+def api_borrar(wa_id: str):
+    if not db.obtener(wa_id):
+        raise HTTPException(404, "No existe")
+    db.borrar(wa_id)
+    log.info("Registro eliminado desde el panel: %s", wa_id)
+    return {"eliminado": wa_id}
+
+
 @app.post("/api/evaluar-pendientes", dependencies=[Depends(autorizado)])
 async def api_evaluar_pendientes():
     from evaluar import evaluar_participante
