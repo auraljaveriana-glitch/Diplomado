@@ -101,6 +101,8 @@
   .confirmar{background:rgba(224,101,92,.1);border:1px solid rgba(224,101,92,.45);border-radius:8px;padding:10px 12px}
   .confirmar p{margin:0 0 10px;color:var(--ink-2)}
   [hidden]{display:none!important}
+  .fallos{border-color:rgba(224,101,92,.5)}
+  .fallos h2{color:#F0A39C}
   .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--teal);color:#fff;padding:10px 16px;border-radius:8px;display:none}
   @media (max-width:1100px){.grid{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}}
   @media (prefers-reduced-motion:reduce){.pulse{animation:none}}
@@ -124,6 +126,7 @@
     <div class="act" id="act"></div>
   </div>
   <section class="kpis" id="kpis"></section>
+  <div class="card fallos" id="fallos" hidden></div>
 
   <div class="filters">
     <input id="fBuscar" placeholder="Buscar nombre, profesión o ciudad…">
@@ -200,7 +203,19 @@ function filtrados(){
     (!c || p.ciudad === c) && (!s || sentDe(p) === s));
 }
 
-function render(){ $('#act').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}) + (DEMO ? ' · datos de ejemplo' : ' · se actualiza cada minuto'); kpis(); red(); tabla(); analisis(); if (sel) detalle(sel); }
+const CODIGOS = {131026:'No se pudo entregar (WhatsApp viejo, número sin WhatsApp o bloqueado)',131047:'Pasaron más de 24 horas desde su último mensaje',131051:'Tipo de mensaje no compatible con su WhatsApp',131053:'Falló la subida del archivo',130429:'Demasiados mensajes por segundo',131049:'Meta limitó la entrega a este usuario',131000:'Error interno de Meta',131031:'Cuenta de WhatsApp bloqueada o con problema de pago'};
+function fallosRender(){
+  const f = (D.fallos||[]).slice().reverse(), box = $('#fallos');
+  if (!f.length){ box.hidden = true; return; }
+  box.hidden = false;
+  const nombre = w => (D.participantes.find(p=>p.wa_id===w)||{}).nombre || '+'+w;
+  box.innerHTML = `<h2>⚠️ Mensajes que Meta no pudo entregar · ${f.length}</h2>
+    <table><thead><tr><th>Persona</th><th>Motivo</th><th>Código</th><th>Qué hizo el bot</th><th>Hora</th></tr></thead><tbody>${
+    f.map(x=>`<tr><td>${esc(nombre(x.wa_id))}</td><td>${esc(CODIGOS[x.codigo]||x.detalle||'Sin detalle')}</td><td class="num">${esc(x.codigo??'—')}</td>
+      <td>${x.reenviado?'Lo reenvió como texto':'Nada: contactarla por otro medio'}</td><td class="muted">${new Date(x.hora).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})}</td></tr>`).join('')}</tbody></table>
+    <p class="muted" style="margin:10px 0 0">Esta lista se borra si el servidor se reinicia; los detalles quedan también en los logs de Railway.</p>`;
+}
+function render(){ fallosRender(); $('#act').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}) + (DEMO ? ' · datos de ejemplo' : ' · se actualiza cada minuto'); kpis(); red(); tabla(); analisis(); if (sel) detalle(sel); }
 
 function kpis(){
   const todos = D.participantes, comp = todos.filter(p=>p.paso==='terminado');

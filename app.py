@@ -51,16 +51,49 @@ if not (BASE / "web").exists():
     logging.getLogger("bot-diplomas").warning("Falta la carpeta web/ (logos): sube web/logo-blanco.png y web/logo-color.png")
 procesados: set[str] = set()
 tareas: set[asyncio.Task] = set()
+enviados: dict[str, dict] = {}       # id de mensaje enviado -> {to, alterno}
+reintentados: set[str] = set()
+fallos: list[dict] = []              # fallas de entrega reportadas por Meta
+candados: dict[str, asyncio.Lock] = {}
 
 
 # ============================ Envío de mensajes ============================
-async def _post(payload: dict):
-    async with httpx.AsyncClient(timeout=30) as cli:
-        r = await cli.post(f"{API}/messages", headers=HEADERS,
-                           json={"messaging_product": "whatsapp", **payload})
-        if r.status_code >= 400:
-            log.error("Error WhatsApp %s: %s", r.status_code, r.text)
-        r.raise_for_status()
+async def _post(payload: dict, alterno: str | None = None):
+    """Envía un mensaje. `alterno` es la versión en texto que se reenvía si Meta no logra entregarlo."""
+    ultimo = None
+    for intento in range(3):
+        try:
+            async with httpx.AsyncClient(timeout=30) as cli:
+                r = await cli.post(f"{API}/messages", headers=HEADERS,
+                                   json={"messaging_product": "whatsapp", **payload})
+            if r.status_code < 400:
+                try:
+                    mid = r.json()["messages"][0]["id"]
+                    enviados[mid] = {"to": payload.get("to"), "alterno": alterno}
+                    if len(enviados) > 5000:
+                        for k in list(enviados)[:1000]:
+                            enviados.pop(k, None)
+                except Exception:
+                    pass
+                return
+            log.error("Error WhatsApp %s para %s: %s", r.status_code, payload.get("to"), r.text)
+            ultimo = r
+            if r.status_code < 500 and r.status_code != 429:
+                break  # error del mensaje: reintentar no sirve
+        except httpx.HTTPError as e:
+            log.warning("Fallo de red enviando a %s (intento %s): %s", payload.get("to"), intento + 1, e)
+        await asyncio.sleep(1.5 * (intento + 1))
+    if alterno and payload.get("type") == "interactive":
+        # si el mensaje con botones no se pudo enviar, se manda como texto
+        await _post({"to": payload["to"], "type": "text", "text": {"body": alterno}})
+        return
+    if ultimo is not None:
+        ultimo.raise_for_status()
+
+
+def _alterno(body, opciones, nota="Responde con el número de tu opción"):
+    lineas = "\n".join(f"*{n}.* {t}" for n, t in enumerate(opciones, 1))
+    return f"{body}\n\n{lineas}\n\n_{nota}_"
 
 
 async def texto(to, body):
@@ -71,10 +104,12 @@ async def botones(to, body, opciones: list[tuple[str, str]]):
     await _post({"to": to, "type": "interactive", "interactive": {
         "type": "button", "body": {"text": body},
         "action": {"buttons": [{"type": "reply", "reply": {"id": i, "title": t[:20]}}
-                               for i, t in opciones[:3]]}}})
+                               for i, t in opciones[:3]]}}},
+        alterno=_alterno(body, [t for _, t in opciones[:3]]))
 
 
-async def lista(to, body, boton, filas: list[tuple[str, str]], descripciones: list[str] | None = None):
+async def lista(to, body, boton, filas: list[tuple[str, str]], descripciones: list[str] | None = None,
+                alterno: str | None = None):
     filas_api = []
     for n, (i, t) in enumerate(filas[:10]):
         fila = {"id": i, "title": t[:24]}
@@ -84,7 +119,8 @@ async def lista(to, body, boton, filas: list[tuple[str, str]], descripciones: li
         filas_api.append(fila)
     await _post({"to": to, "type": "interactive", "interactive": {
         "type": "list", "body": {"text": body},
-        "action": {"button": boton[:20], "sections": [{"title": "Opciones", "rows": filas_api}]}}})
+        "action": {"button": boton[:20], "sections": [{"title": "Opciones", "rows": filas_api}]}}},
+        alterno=alterno or _alterno(body, [t for _, t in filas[:10]]))
 
 
 async def enviar_pdf(to, ruta: Path, nombre_doc, caption):
@@ -136,6 +172,7 @@ async def preguntar_campo(tel, paso):
     if paso == "telefono":
         await botones(tel, f"¿Cuál es tu *teléfono* de contacto?\n\nPuedes usar este mismo número "
                            f"(+{tel}) o escribir otro.", [("tel_wa", "Usar este número")])
+        # en la versión de texto, responder "1" usa el mismo número
         return
     pregunta = next(q for p, _, q in CAMPOS if p == paso)
     await texto(tel, pregunta)
@@ -157,9 +194,12 @@ async def preguntar_encuesta(tel, idx):
     encabezado = f"*Pregunta {idx + 1} de {len(PREGUNTAS)}*\n\n{q['texto']}"
     if q["tipo"] == "escala":
         await lista(tel, encabezado, "Calificar",
-                    [(str(n), f"{n} - {ETIQUETAS_ESCALA[n]}") for n in range(5, 0, -1)])
+                    [(str(n), f"{n} - {ETIQUETAS_ESCALA[n]}") for n in range(5, 0, -1)],
+                    alterno=f"{encabezado}\n\nResponde con un número del *1 al 5*:\n"
+                            "5 = Excelente · 4 = Bueno · 3 = Regular · 2 = Malo · 1 = Muy malo")
     elif q["tipo"] == "nps":
-        await lista(tel, encabezado, "Elegir número", [(str(n), str(n)) for n in range(10, 0, -1)])
+        await lista(tel, encabezado, "Elegir número", [(str(n), str(n)) for n in range(10, 0, -1)],
+                    alterno=f"{encabezado}\n\nResponde con un número del *1 al 10*.")
     elif q["tipo"] == "opciones":
         await botones(tel, encabezado, [(f"op{i}", o) for i, o in enumerate(q["opciones"])])
     elif q["tipo"] == "lista":
@@ -180,8 +220,11 @@ def leer_respuesta(q, txt, rid):
     if q["tipo"] in ("opciones", "lista"):
         if rid and rid.startswith("op"):
             return q["opciones"][int(rid[2:])]
+        t = (txt or "").strip().rstrip(".").lower()
+        if t.isdigit() and 1 <= int(t) <= len(q["opciones"]):
+            return q["opciones"][int(t) - 1]
         for o in q["opciones"]:
-            if txt and txt.strip().lower() == o.lower():
+            if t == o.lower() or (len(t) >= 4 and t in o.lower()):
                 return o
         return None
     return txt.strip() if txt and len(txt.strip()) >= 3 else None
@@ -191,7 +234,7 @@ async def entregar_diploma(tel, p):
     await texto(tel, "¡Gracias por tus respuestas! 🙌 Estoy generando tu certificado... ⏳")
     doc = nombre_archivo(p["nombre"])
     with tempfile.TemporaryDirectory() as tmp:
-        ruta = generar_diploma(p["nombre"], Path(tmp) / doc)
+        ruta = await asyncio.to_thread(generar_diploma, p["nombre"], Path(tmp) / doc)
         await enviar_pdf(tel, ruta, doc, f"🎓 ¡Felicitaciones, {p['nombre'].split()[0]}!")
 
 
@@ -232,8 +275,15 @@ async def manejar(tel: str, txt: str | None, rid: str | None):
 
     paso = p["paso"]
 
+    if t in {"1", "2"} and not rid:
+        mapa = {"consentimiento": ["acepto", "no_acepto"], "confirmar_datos": ["datos_ok", "datos_corregir"],
+                "telefono": ["tel_wa"]}
+        ids = mapa.get(paso, [])
+        if int(t) <= len(ids):
+            rid = ids[int(t) - 1]
+
     if paso == "consentimiento":
-        if rid == "acepto" or t.lower() in {"si", "sí", "acepto", "autorizo"}:
+        if rid == "acepto" or t.lower() in {"si", "sí", "acepto", "autorizo", "sí, autorizo", "si autorizo"}:
             db.guardar(tel, paso="nombre")
             await preguntar_campo(tel, "nombre")
         elif rid == "no_acepto" or t.lower() in {"no", "no autorizo"}:
@@ -311,15 +361,48 @@ async def verificar(request: Request):
     return Response(status_code=403)
 
 
+async def procesar(tel, txt, rid):
+    candado = candados.setdefault(tel, asyncio.Lock())
+    async with candado:  # los mensajes de una misma persona se atienden en orden
+        try:
+            await manejar(tel, txt, rid)
+        except Exception:
+            log.exception("Error manejando mensaje de %s", tel)
+
+
+async def estado_fallido(st: dict):
+    err = (st.get("errors") or [{}])[0]
+    info = {"wa_id": st.get("recipient_id"), "codigo": err.get("code"),
+            "detalle": err.get("title") or err.get("message") or "",
+            "hora": db.ahora().isoformat(), "reenviado": False}
+    log.error("Meta NO entregó un mensaje a %s: código %s · %s", info["wa_id"], info["codigo"], info["detalle"])
+    env = enviados.get(st.get("id"))
+    if env and env.get("alterno") and st.get("id") not in reintentados:
+        reintentados.add(st["id"])
+        try:
+            await _post({"to": env["to"], "type": "text", "text": {"body": env["alterno"]}})
+            info["reenviado"] = True
+            log.info("Reenviado como texto a %s", env["to"])
+        except Exception:
+            log.exception("Tampoco se pudo reenviar como texto a %s", env["to"])
+    fallos.append(info)
+    del fallos[:-200]
+
+
 @app.post("/webhook")
 async def recibir(request: Request):
     data = await request.json()
     for entry in data.get("entry", []):
         for change in entry.get("changes", []):
-            for msg in change.get("value", {}).get("messages", []):
+            valor = change.get("value", {})
+            for st in valor.get("statuses", []):
+                if st.get("status") == "failed":
+                    lanzar(estado_fallido(st))
+            for msg in valor.get("messages", []):
                 if msg["id"] in procesados:
                     continue
                 procesados.add(msg["id"])
+                log.info("Mensaje de %s (%s)", msg["from"], msg["type"])
                 txt = msg.get("text", {}).get("body") if msg["type"] == "text" else None
                 rid = None
                 if msg["type"] == "interactive":
@@ -327,10 +410,7 @@ async def recibir(request: Request):
                     rid = (i.get("button_reply") or i.get("list_reply") or {}).get("id")
                 elif msg["type"] == "button":
                     txt = msg.get("button", {}).get("text")
-                try:
-                    await manejar(msg["from"], txt, rid)
-                except Exception:
-                    log.exception("Error manejando mensaje de %s", msg["from"])
+                lanzar(procesar(msg["from"], txt, rid))  # responde a Meta de inmediato
     return {"status": "ok"}
 
 
@@ -404,7 +484,7 @@ def panel(request: Request):
 @app.get("/api/datos", dependencies=[Depends(autorizado)])
 def api_datos():
     return {"preguntas": PREGUNTAS, "participantes": db.todos(), "analisis": db.ultimo_analisis(),
-            "claude": bool(os.getenv("ANTHROPIC_API_KEY"))}
+            "claude": bool(os.getenv("ANTHROPIC_API_KEY")), "fallos": fallos[-50:]}
 
 
 @app.post("/api/evaluar/{wa_id}", dependencies=[Depends(autorizado)])
