@@ -391,26 +391,42 @@ async def estado_fallido(st: dict):
 
 @app.post("/webhook")
 async def recibir(request: Request):
-    data = await request.json()
+    try:
+        data = await request.json()
+    except Exception:
+        return {"status": "ok"}
     for entry in data.get("entry", []):
         for change in entry.get("changes", []):
             valor = change.get("value", {})
             for st in valor.get("statuses", []):
-                if st.get("status") == "failed":
-                    lanzar(estado_fallido(st))
+                try:
+                    if st.get("status") == "failed":
+                        lanzar(estado_fallido(st))
+                except Exception:
+                    log.exception("Estado con formato inesperado")
+            contactos = {c.get("wa_id") for c in valor.get("contacts", []) if c.get("wa_id")}
             for msg in valor.get("messages", []):
-                if msg["id"] in procesados:
-                    continue
-                procesados.add(msg["id"])
-                log.info("Mensaje de %s (%s)", msg["from"], msg["type"])
-                txt = msg.get("text", {}).get("body") if msg["type"] == "text" else None
-                rid = None
-                if msg["type"] == "interactive":
-                    i = msg["interactive"]
-                    rid = (i.get("button_reply") or i.get("list_reply") or {}).get("id")
-                elif msg["type"] == "button":
-                    txt = msg.get("button", {}).get("text")
-                lanzar(procesar(msg["from"], txt, rid))  # responde a Meta de inmediato
+                try:
+                    mid, tipo = msg.get("id"), msg.get("type", "?")
+                    tel = msg.get("from") or (next(iter(contactos)) if len(contactos) == 1 else None)
+                    if not tel:
+                        log.warning("Mensaje sin remitente, se ignora: %s", str(msg)[:300])
+                        continue
+                    if mid and mid in procesados:
+                        continue
+                    if mid:
+                        procesados.add(mid)
+                    log.info("Mensaje de %s (%s)", tel, tipo)
+                    txt = (msg.get("text") or {}).get("body") if tipo == "text" else None
+                    rid = None
+                    if tipo == "interactive":
+                        i = msg.get("interactive") or {}
+                        rid = (i.get("button_reply") or i.get("list_reply") or {}).get("id")
+                    elif tipo == "button":
+                        txt = (msg.get("button") or {}).get("text")
+                    lanzar(procesar(tel, txt, rid))  # responde a Meta de inmediato
+                except Exception:
+                    log.exception("Mensaje con formato inesperado: %s", str(msg)[:300])
     return {"status": "ok"}
 
 
@@ -505,6 +521,42 @@ def api_borrar(wa_id: str):
     db.borrar(wa_id)
     log.info("Registro eliminado desde el panel: %s", wa_id)
     return {"eliminado": wa_id}
+
+
+MSG_RECONTACTO = ("Hola 👋 Te escribimos de *Aural Centros Auditivos*. Tuvimos un inconveniente técnico "
+                  "y perdimos tus respuestas del *Diplomado Audiología Estratégica*. 🙏\n\n"
+                  "¿Nos ayudas respondiendo de nuevo? Solo escribe *hola* (toma unos 2 minutos) "
+                  "y te enviamos tu certificado.")
+
+
+@app.post("/api/recontactar", dependencies=[Depends(autorizado)])
+async def api_recontactar(request: Request):
+    """Envía un mensaje a una lista de números (solo funciona dentro de las 24 h desde su último mensaje)."""
+    datos = await request.json()
+    crudos = re.findall(r"\+?\d[\d -]{8,16}\d", datos.get("numeros", ""))
+    numeros = []
+    for c in crudos:
+        n = re.sub(r"\D", "", c)
+        if len(n) == 10 and n.startswith("3"):
+            n = "57" + n
+        if n not in numeros:
+            numeros.append(n)
+    texto_msg = (datos.get("mensaje") or "").strip() or MSG_RECONTACTO
+    ok, error = [], []
+    for n in numeros:
+        p = db.obtener(n)
+        if p and p["paso"] == "terminado":
+            continue  # ya tiene sus respuestas guardadas: no se le escribe
+        if p:
+            db.borrar(n)  # quedó a medias: que empiece de cero
+        try:
+            await _post({"to": n, "type": "text", "text": {"body": texto_msg}})
+            ok.append(n)
+        except Exception as e:
+            error.append({"numero": n, "detalle": str(e)[:200]})
+        await asyncio.sleep(0.3)
+    log.info("Recontacto: %s enviados, %s con error", len(ok), len(error))
+    return {"enviados": ok, "errores": error, "omitidos_ya_completos": len(numeros) - len(ok) - len(error)}
 
 
 @app.post("/api/evaluar-pendientes", dependencies=[Depends(autorizado)])

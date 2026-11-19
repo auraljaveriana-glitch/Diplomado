@@ -101,6 +101,8 @@
   .confirmar{background:rgba(224,101,92,.1);border:1px solid rgba(224,101,92,.45);border-radius:8px;padding:10px 12px}
   .confirmar p{margin:0 0 10px;color:var(--ink-2)}
   [hidden]{display:none!important}
+  .rc-grid{display:grid;grid-template-columns:1fr 1.4fr;gap:12px}
+  .rc-grid textarea{width:100%;background:var(--surface-2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:inherit;resize:vertical}
   .fallos{border-color:rgba(224,101,92,.5)}
   .fallos h2{color:#F0A39C}
   .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--teal);color:#fff;padding:10px 16px;border-radius:8px;display:none}
@@ -153,6 +155,20 @@
   </div>
 
   <div class="card ag" id="analisis"></div>
+
+  <div class="card recontacto">
+    <h2>✉️ Pedir que respondan de nuevo</h2>
+    <p class="muted" style="margin:0 0 12px">Pega los números (uno por línea, o el texto de los logs tal cual: el panel saca los números solo). A quien ya tenga su encuesta completa no se le escribe; a quien quedó a medias se le reinicia. WhatsApp solo deja escribir a quien te habló en las <b>últimas 24 horas</b>: los demás aparecerán en el recuadro rojo con el código 131047.</p>
+    <div class="rc-grid">
+      <textarea id="rcNumeros" rows="7" placeholder="573112375230&#10;573007316807&#10;…"></textarea>
+      <textarea id="rcMensaje" rows="7"></textarea>
+    </div>
+    <div style="display:flex;gap:12px;align-items:center;margin-top:12px">
+      <button class="btn pri" id="bRc">Enviar mensaje</button>
+      <span class="muted" id="rcConteo"></span>
+    </div>
+    <div id="rcRes" class="muted" style="margin-top:10px"></div>
+  </div>
 
   <div class="card">
     <h2>Todos los registros</h2>
@@ -421,6 +437,21 @@ $('#bPend').onclick = async () => {
   const b=$('#bPend'); b.disabled=true; b.textContent='Evaluando…';
   const r = await fetch('/api/evaluar-pendientes',{method:'POST'}); const j = await r.json();
   toast(`${j.evaluados} encuestas evaluadas`); b.disabled=false; b.textContent='✦ Evaluar pendientes'; cargar();
+};
+const MSG_RC = "Hola 👋 Te escribimos de *Aural Centros Auditivos*. Tuvimos un inconveniente técnico y perdimos tus respuestas del *Diplomado Audiología Estratégica*. 🙏\n\n¿Nos ayudas respondiendo de nuevo? Solo escribe *hola* (toma unos 2 minutos) y te enviamos tu certificado.";
+$('#rcMensaje').value = MSG_RC;
+const numerosDe = t => [...new Set((t.match(/\+?\d[\d -]{8,16}\d/g)||[]).map(x=>{let n=x.replace(/\D/g,''); if(n.length===10&&n[0]==='3') n='57'+n; return n;}))];
+$('#rcNumeros').addEventListener('input',()=>{ const n=numerosDe($('#rcNumeros').value).length; $('#rcConteo').textContent = n ? `${n} número${n===1?'':'s'} detectado${n===1?'':'s'}` : ''; });
+$('#bRc').onclick = async () => {
+  const nums = numerosDe($('#rcNumeros').value);
+  if (!nums.length) return toast('Pega al menos un número');
+  if (DEMO) return toast('En modo demo no se envían mensajes');
+  const b=$('#bRc'); b.disabled=true; b.textContent=`Enviando a ${nums.length}…`;
+  const r = await fetch('/api/recontactar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({numeros:nums.join('\n'),mensaje:$('#rcMensaje').value})});
+  if (r.status===401){ location.href='/login'; return; }
+  const j = await r.json();
+  $('#rcRes').innerHTML = `Enviados: <b>${j.enviados.length}</b> · Ya completos (omitidos): <b>${j.omitidos_ya_completos}</b> · Con error: <b>${j.errores.length}</b>` + (j.errores.length?'<br>'+j.errores.map(e=>esc(e.numero)).join(', '):'');
+  b.disabled=false; b.textContent='Enviar mensaje'; cargar();
 };
 ['#fBuscar','#fCiudad','#fSent'].forEach(s=>$(s).addEventListener('input',()=>{ red(); tabla(); }));
 addEventListener('resize',()=>red());
